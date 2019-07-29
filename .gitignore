@@ -1,4 +1,5 @@
-pingmesh.exe
+cmd/pingmesh/pingmesh
+cmd/pingmesh/pingmesh.exe
 *~
 *.bak
 */bak
