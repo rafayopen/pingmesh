@@ -63,3 +63,43 @@ Terminate the application with control-c (interrupt) from the terminal.
     
     2019/07/29 09:48:44 all goroutines exited, returning from main
 
+    
+Each line has an epoch timestamp when the ping started, and the time in
+milliseconds measured for the following actions, from `perftest`:
+  * DNS: how long to look up the IP address(es) for the hostname
+  * TCP: how long the TCP three-way handshake took to set up the connection
+  * TLS: how long the SSL/TLS handshake took to establish a secure channel
+  * First: how long until the first byte of the reply arrived (HTTP response headers)
+  * LastB: how long until the last byte of the reply arrived (HTTP content body)
+  * Total: response time of the application, from start of TCP connection until last byte
+  * HTTP: response code returned from the server; 500 indicates a failure to connect
+  * Size: response size in content bytes received from the upstream (response body, not headers)
+  * From_Location: where you said the test was running from (REP_LOCATION environment variable)
+  * Remote_Addr: the IP address hit by the test (may change over time, based upon DNS result)
+  * proto://uri: the request URL (protocol and URI requested)
+
+The final section provides the count of samples, the total time, and averages
+for the above values. If you test to multiple endpoints you'll see multiple
+sections as each completes.
+
+**Docker**: To run the containerized app, use `gmake run` from the command line,
+which will build the docker image (if needed) and run it out of the local docker
+repo with default arguments. It will run in asymmetric mode but you can connect
+to it from another system as follows
+
+<!-- TODO: describe example how to connect to local instance from command line -->
+
+If you want to push it to your DockerHub repo, you can `gmake push`.  This
+requires the following environment variables:
+
+``` shell
+export DOCKER_USER="your docker username"
+export DOCKER_EMAIL="the email address you registered with DockerHub"
+```
+
+You will need to login to DockerHub to establish credentials:
+
+``` shell
+docker login --username=${DOCKER_USER} --email=${DOCKER_EMAIL}
+```
+
