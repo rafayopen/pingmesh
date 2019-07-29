@@ -1,0 +1,4 @@
+github.com/aws/aws-sdk-go v1.21.3/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
+github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
+github.com/rafayopen/perftest v0.0.0-20190724045542-b99aee761c94 h1:6pCrxkY0EdbUUtCXRivFLTMQ4iQqAxOx6kSTFDbtVjw=
+github.com/rafayopen/perftest v0.0.0-20190724045542-b99aee761c94/go.mod h1:/cus1FKjtq/VQpHYX34G2AWZmkC1Z3bESRCnOneUgtc=
