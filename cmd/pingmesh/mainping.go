@@ -33,16 +33,6 @@ You can interrupt it with ^C (SIGINT) or SIGTERM.
 Command line flags:
 `
 
-var (
-	// flags (see main())
-	numTests   int
-	pingDelay  int
-	servePort  int
-	myLocation string
-	vf, qf     bool
-	verbose    int = 1
-)
-
 func printUsage() {
 	fmt.Fprintf(os.Stderr, usage, os.Args[0])
 	flag.PrintDefaults()
@@ -51,9 +41,20 @@ func printUsage() {
 // main reads command line arguments, sets up signal handler, then
 // starts web server and endpoint pingers
 func main() {
+	var (
+		numTests   int
+		pingDelay  int
+		servePort  int
+		myLocation string
+		cwFlag     bool
+		vf, qf     bool
+		verbose    int = 1
+	)
+
 	flag.IntVar(&pingDelay, "d", 10, "delay in seconds between ping requests")
 	flag.IntVar(&servePort, "s", 0, "server listen port; default zero means don't run a server")
 	flag.IntVar(&numTests, "n", 0, "number of tests to each endpoint (default 0 runs until interrupted)")
+	flag.BoolVar(&cwFlag, "c", false, "publish metrics to CloudWatch")
 	flag.BoolVar(&vf, "v", false, "be more verbose")
 	flag.BoolVar(&qf, "q", false, "be less verbose")
 	flag.StringVar(&myLocation, "I", "", "HTTP client's location to report")
@@ -110,7 +111,8 @@ func main() {
 	// Start server if a listen port has been configured
 	if servePort > 0 {
 		go server.StartServer(servePort)
-		handlers.SetupRoutes(myLocation)
+		handlers.SetupState(myLocation, cwFlag)
+		handlers.SetupRoutes()
 	}
 
 	if verbose > 0 {

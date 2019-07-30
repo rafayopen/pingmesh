@@ -4,6 +4,7 @@ package client
 import (
 	"github.com/rafayopen/pingmesh/pkg/handlers"
 
+	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
 
 	"fmt"
@@ -40,9 +41,12 @@ func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) 
 	failcount := 0
 	maxfail := 10
 	var ptSummary pt.PingTimes // aggregates ping time results
+	mn := "TCP RTT"            // CloudWatch metric name
+	ns := "pingmesh"           // Cloudwatch namespace
+
 	for {
 		// TODO -- replace pt.FetchURL with a version that obeys the REST API design
-		ptResult := pt.FetchURL(url, handlers.GetLocation())
+		ptResult := pt.FetchURL(url, handlers.MyLocation())
 		if nil == ptResult {
 			failcount++
 			log.Println("fetch failure", failcount, "of", maxfail, "on", url)
@@ -85,20 +89,24 @@ func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) 
 				fmt.Println(ptResult.MsecTsv())
 			}
 
-			// if *cwFlag {
-			// 	if verbose > 1 {
-			// 		log.Println("publishing", pt.Msec(ptResult.RespTime()), "msec to cloudwatch")
-			// TODO -- use network RTT estimate (TcpHs) rather than full page response time
-			// 	}
-			// 	respCode := "0"
-			// 	if ptResult.RespCode >= 0 {
-			// 		// 000 in cloudwatch indicates it was a zero return code from lower layer
-			// 		// while single digit 0 indicates an error making the request
-			// 		respCode = fmt.Sprintf("%03d", ptResult.RespCode)
-			// 	}
+			if handlers.CwFlag() {
+				metric := pt.Msec(ptResult.TcpHs)
+				myLocation := handlers.MyLocation()
+				if verbose > 1 {
+					log.Println("publishing TCP RTT", metric, "msec to CloudWatch ", ns)
+				}
+				respCode := "0"
+				if ptResult.RespCode >= 0 {
+					// 000 in cloudwatch indicates it was a zero return code from lower layer
+					// while single digit 0 indicates an error making the request
+					respCode = fmt.Sprintf("%03d", ptResult.RespCode)
+				}
 
-			// 	cw.PublishRespTime(myLocation, urlStr, respCode, pt.Msec(ptResult.RespTime()))
-			// }
+				////
+				// Publish my location (IP or REP_LOCATION) and their location (the URL for now)
+				cw.PublishRespTime(myLocation, url, respCode, metric, mn, ns)
+				// NOTE: using network RTT estimate (TcpHs) rather than full page response time
+			}
 		}
 
 		if count >= int64(numTries) {

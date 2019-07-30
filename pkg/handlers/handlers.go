@@ -8,18 +8,23 @@ import (
 )
 
 type state struct {
-	myLoc string
+	myLoc  string
+	cwFlag bool
 }
 
 var appState state // this is a hack for now (v1)
 
-func SetupState(myLoc string) error {
+func SetupState(myLoc string, cwFlag bool) {
 	appState.myLoc = myLoc
-	return nil
+	appState.cwFlag = cwFlag
 }
 
-func GetLocation() string {
+func MyLocation() string {
 	return appState.myLoc
+}
+
+func CwFlag() bool {
+	return appState.cwFlag
 }
 
 func RootHandler(w http.ResponseWriter, r *http.Request) {

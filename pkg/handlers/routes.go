@@ -20,10 +20,8 @@ var Routes = []struct {
 	{"/v1/ping", "get a ping response", PingHandler},
 }
 
-func SetupRoutes(myLoc string) error {
-	err := SetupState(myLoc)
+func SetupRoutes() {
 	for _, route := range Routes {
 		http.HandleFunc(route.uri, route.handler)
 	}
-	return err
 }
