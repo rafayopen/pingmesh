@@ -68,6 +68,7 @@ NOW = $(shell date +%Y%m%d%H%M)
 rafay-push:	${IMAGE_LIST}
 	$(DOCKER) tag ${IMAGE} ${IMAGE}:${NOW} # tag local image name with timestamp
 	$(CLI) image upload ${IMAGE}:${NOW}
+	$(DOCKER) images | egrep "${IMAGE} " > ${IMAGE_LIST} # update with latest tag
 
 test:	cmd/${IMAGE}/${IMAGE}
 	cmd/${IMAGE}/${IMAGE} -v -V -s 8080 -d 5 http://localhost:8080/v1/ping
