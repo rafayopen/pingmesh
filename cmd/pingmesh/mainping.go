@@ -79,6 +79,18 @@ func main() {
 		return
 	}
 
+	////
+	// Start server if a listen port has been configured
+	if servePort > 0 {
+		s := server.NewServer()
+		if s == nil {
+			log.Println("error starting server")
+			os.Exit(1)
+		}
+		s.SetupState(myLocation, cwFlag)
+		go s.StartServer(servePort)
+	}
+
 	// set up waitgroup to cleanly exit process if all ping threads exit
 	wg := new(sync.WaitGroup)
 
@@ -105,14 +117,6 @@ func main() {
 		fmt.Println("close sigchan")
 		close(sigchan)
 	}()
-
-	////
-	// Start server if a listen port has been configured
-	if servePort > 0 {
-		go server.StartServer(servePort)
-		server.SetupState(myLocation, cwFlag)
-		server.SetupRoutes()
-	}
 
 	if verbose > 0 {
 		if verbose > 1 {

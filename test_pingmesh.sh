@@ -1,5 +1,10 @@
 #!/bin/sh
 
+echo try one
+cmd/pingmesh/pingmesh -s 8080 -n 5 -d 1 http://localhost:8080/v1/ping
+[ $? ] || exit 1
+
+echo try two
 ####
 # Run a pair of standalone instances that talk to each other locally and
 # report metrics into cloudwatch
