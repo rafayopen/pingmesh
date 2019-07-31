@@ -1,5 +1,4 @@
-// handlers implements HTTP respond management for the server
-package handlers
+package server
 
 import (
 	"encoding/json"

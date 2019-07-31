@@ -2,7 +2,7 @@
 package client
 
 import (
-	"github.com/rafayopen/pingmesh/pkg/handlers"
+	"github.com/rafayopen/pingmesh/pkg/server"
 
 	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
@@ -46,7 +46,7 @@ func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) 
 
 	for {
 		// TODO -- replace pt.FetchURL with a version that obeys the REST API design
-		ptResult := pt.FetchURL(url, handlers.MyLocation())
+		ptResult := pt.FetchURL(url, server.MyLocation())
 		if nil == ptResult {
 			failcount++
 			log.Println("fetch failure", failcount, "of", maxfail, "on", url)
@@ -89,9 +89,9 @@ func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) 
 				fmt.Println(ptResult.MsecTsv())
 			}
 
-			if handlers.CwFlag() {
+			if server.CwFlag() {
 				metric := pt.Msec(ptResult.TcpHs)
-				myLocation := handlers.MyLocation()
+				myLocation := server.MyLocation()
 				if verbose > 1 {
 					log.Println("publishing TCP RTT", metric, "msec to CloudWatch ", ns)
 				}

@@ -9,7 +9,6 @@ package main
 
 import (
 	"github.com/rafayopen/pingmesh/pkg/client"
-	"github.com/rafayopen/pingmesh/pkg/handlers"
 	"github.com/rafayopen/pingmesh/pkg/server"
 
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
@@ -111,8 +110,8 @@ func main() {
 	// Start server if a listen port has been configured
 	if servePort > 0 {
 		go server.StartServer(servePort)
-		handlers.SetupState(myLocation, cwFlag)
-		handlers.SetupRoutes()
+		server.SetupState(myLocation, cwFlag)
+		server.SetupRoutes()
 	}
 
 	if verbose > 0 {
