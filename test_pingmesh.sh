@@ -1,8 +1,8 @@
 #!/bin/sh
 
 echo try one
-cmd/pingmesh/pingmesh -s 8080 -n 5 -d 1 http://localhost:8080/v1/ping
-[ $? ] || exit 1
+cmd/pingmesh/pingmesh -v -s 8080 -n 5 -d 2 http://localhost:8080/v1/ping
+[ $# -eq 0 ] && exit 0
 
 echo try two
 ####
