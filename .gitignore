@@ -8,3 +8,6 @@ cmd/pingmesh/pingmesh.exe
 *~
 *#
 .#*
+
+# outline-mode internal documentation
+*.om
