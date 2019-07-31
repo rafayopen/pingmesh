@@ -2,11 +2,13 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 )
 
-func (s *server) RootHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		// return default pages with links to other API endpoints
@@ -18,7 +20,7 @@ func (s *server) RootHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) MetricsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		memStats := GetMemStatSummary()
@@ -35,7 +37,7 @@ func (s *server) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) PeersHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		body, err := ioutil.ReadAll(r.Body)
@@ -50,11 +52,33 @@ func (s *server) PeersHandler(w http.ResponseWriter, r *http.Request) {
 		// handle incoming peer
 
 		// write response
-		w.Write([]byte("PeersHandler POST not implemented\n"))
+		w.Write([]byte("Peer POST not implemented"))
 
 	case "GET":
 		// write response
-		w.Write([]byte("PeersHandler GET not implemented\n"))
+
+		response := htmlHeader
+		response += "<h1> Peer List </h1>"
+		response += "<p>Served from " + s.myLoc + "\n"
+		response += "total of" + strconv.Itoa(len(s.peers)) + "peers\n"
+		response += "<pre>\n"
+		w.Write([]byte(response))
+
+		for _, peer := range s.peers {
+			jsonBody, err := json.Marshal(peer)
+			if err != nil {
+				http.Error(w, "Error converting peer to json",
+					http.StatusInternalServerError)
+			}
+			if s.verbose > 1 {
+				fmt.Printf("dump peer json %v\n", jsonBody)
+			}
+			w.Write(jsonBody)
+			w.Write([]byte("\n"))
+			w.Write([]byte(peer.Info()))
+		}
+
+		w.Write([]byte("</pre>\n" + htmlTrailer))
 
 	default:
 		reason := "Invalid request method: " + r.Method
@@ -62,7 +86,7 @@ func (s *server) PeersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) PingHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 	//var h http.HandlerFunc
 	switch r.Method {
 	case "POST":
@@ -96,7 +120,7 @@ func bullet(url, text string) string {
 	return "<li><a href=\"" + url + "\">" + text + "</a></li>\n"
 }
 
-func (s *server) rootResponse() []byte {
+func (s *meshSrv) rootResponse() []byte {
 	if len(routelist) == 0 { // TODO: or if routes changed...
 		routelist = "<ul>\n"
 		for _, route := range s.routes {
@@ -115,7 +139,7 @@ func (s *server) rootResponse() []byte {
 	return []byte(response)
 }
 
-func (s *server) pingResponse() []byte {
+func (s *meshSrv) pingResponse() []byte {
 	response := htmlHeader
 	response += "<h1> pingResponse </h1>"
 	response += "<p>Served from " + s.myLoc + "\n"
