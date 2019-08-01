@@ -2,10 +2,8 @@ package server
 
 import (
 	"encoding/json"
-	//	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 )
 
 func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +45,7 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// decode body into JSON ... if propertly formatted
+		// or use argument parameters to control
 		_ = body
 
 		// handle incoming peer
@@ -57,25 +56,12 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		// write response
 
-		response := htmlHeader
-		response += "<h1> Peer List </h1>"
-		response += "<p>Served from " + s.myLoc + "\n"
-		response += "total of " + strconv.Itoa(len(s.peers)) + " peers\n"
-		response += "<pre>\n"
-		w.Write([]byte(response))
-
-		for _, p := range s.peers {
-			jsonBody, err := json.Marshal(p)
-			if err != nil {
-				http.Error(w, "Error converting peer to json",
-					http.StatusInternalServerError)
-			}
-			w.Write(jsonBody)
-			w.Write([]byte("\n"))
-			//			w.Write([]byte(p.Info()))
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(s.peers); err != nil {
+			http.Error(w, "Error converting peer to json",
+				http.StatusInternalServerError)
 		}
-
-		w.Write([]byte("</pre>\n" + htmlTrailer))
 
 	default:
 		reason := "Invalid request method: " + r.Method

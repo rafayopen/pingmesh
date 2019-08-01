@@ -20,6 +20,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 const usage = `Usage: %s [flags] endpoints...
@@ -90,6 +91,7 @@ func main() {
 	// Start server if a listen port has been configured
 	if servePort > 0 {
 		go pm.StartServer(servePort)
+		time.Sleep(1 * time.Second) // let it come up before starting pings
 	}
 
 	// set up waitgroup to cleanly exit process if all ping threads exit

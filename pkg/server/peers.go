@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+////
+//  peer holds information about an endpoint that we are trying to ping.  The
+//  meshSrv instance referenced in peer holds the array of peer objects that are
+//  currently active.
 type peer struct {
 	// configuration settings -- must be exported so JSON will dump them
 	Url      string
@@ -17,13 +21,12 @@ type peer struct {
 	Delay    int
 	ms       *meshSrv
 
-	// auto-updated
+	// ping response fields go here ... TODO
 
-	// time we started pinging this peer
-	Start time.Time
+	// auto-updated fields
 
-	// most recent ping response
-	LastPing time.Time
+	Start    time.Time // time we started pinging this peer
+	LastPing time.Time // most recent ping response
 }
 
 ////
@@ -49,21 +52,19 @@ func (ms *meshSrv) NewPeer(url string, numTries, delay int) peer {
 	}
 
 	ms.peers = append(ms.peers, p)
-	if ms.Verbose() > 1 {
-		log.Println("added peer", p.Info(), "total", len(ms.peers), "peers")
-	}
+
 	return p
 }
 
+////
+//  Info returns a string with basic peer state
 func (p *peer) Info() string {
 	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.NumTries, p.Start)
 }
 
-// PingPeer sends HTTP request(s) to the configured host:port/uri and captures detailed
-// timing information. It repeats the ping request after a delay (in time.Seconds).
-//
-// PingPeer stores ping results in peer state, available via meshSrv to clients via the
-// REST API.
+////
+//  Ping sends HTTP requests to the configured Url and captures detailed timing
+//  information. It repeats the ping request after a delay (in time.Seconds).
 func (p *peer) Ping() {
 	//func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup)
 	// this task recorded in the waitgroup: clear waitgroup on return
