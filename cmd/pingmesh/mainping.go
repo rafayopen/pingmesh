@@ -128,7 +128,7 @@ func main() {
 				close(doneChan)
 				doneChan = nil
 			} else {
-				// something went wrong (should have exited aready)
+				// something went wrong (should have exited already)
 				fmt.Println("\nreceived", sig, "signal, hard exit")
 				os.Exit(1)
 			}
