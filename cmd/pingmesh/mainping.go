@@ -9,7 +9,6 @@ package main
 
 import (
 	"github.com/rafayopen/pingmesh/pkg/client"
-	"github.com/rafayopen/pingmesh/pkg/handlers"
 	"github.com/rafayopen/pingmesh/pkg/server"
 
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
@@ -80,11 +79,26 @@ func main() {
 		return
 	}
 
+	pm := server.PingmeshServer()
+	if pm == nil {
+		log.Println("error starting server")
+		os.Exit(1)
+	}
+	pm.SetupState(myLocation, cwFlag, verbose)
+
+	////
+	// Start server if a listen port has been configured
+	if servePort > 0 {
+		go pm.StartServer(servePort)
+	}
+
 	// set up waitgroup to cleanly exit process if all ping threads exit
 	wg := new(sync.WaitGroup)
+	pm.SetWaitGroup(wg)
 
 	// doneChan signals goroutines to exit after signal or other terminating condition
 	var doneChan = make(chan int)
+	pm.SetDoneChan(doneChan)
 
 	////
 	// Set up signal handler thread to close down Pinger goroutines gracefully
@@ -107,14 +121,6 @@ func main() {
 		close(sigchan)
 	}()
 
-	////
-	// Start server if a listen port has been configured
-	if servePort > 0 {
-		go server.StartServer(servePort)
-		handlers.SetupState(myLocation, cwFlag)
-		handlers.SetupRoutes()
-	}
-
 	if verbose > 0 {
 		if verbose > 1 {
 			log.Println("starting ping across", endpoints)
@@ -125,11 +131,7 @@ func main() {
 	////
 	// Start a Pinger for each endpoint on the command line
 	for _, url := range endpoints {
-		// wg.Add needs to happen here, not in pinger due to race condition: if we get
-		// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
-		wg.Add(1)
-		go client.Pinger(url, numTests, pingDelay, doneChan, wg)
-		// pinger must call wg.Done when returning to decrement the waitgroup
+		client.AddPeer(url, numTests, pingDelay)
 	}
 
 	if verbose > 1 {

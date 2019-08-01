@@ -1,37 +1,18 @@
-// handlers implements HTTP respond management for the server
-package handlers
+package server
 
 import (
 	"encoding/json"
+	//	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 )
 
-type state struct {
-	myLoc  string
-	cwFlag bool
-}
-
-var appState state // this is a hack for now (v1)
-
-func SetupState(myLoc string, cwFlag bool) {
-	appState.myLoc = myLoc
-	appState.cwFlag = cwFlag
-}
-
-func MyLocation() string {
-	return appState.myLoc
-}
-
-func CwFlag() bool {
-	return appState.cwFlag
-}
-
-func RootHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		// return default pages with links to other API endpoints
-		w.Write(rootResponse())
+		w.Write(s.rootResponse())
 
 	default:
 		reason := "Invalid request method: " + r.Method
@@ -39,7 +20,7 @@ func RootHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func MetricsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		memStats := GetMemStatSummary()
@@ -56,7 +37,7 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func PeersHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		body, err := ioutil.ReadAll(r.Body)
@@ -71,11 +52,30 @@ func PeersHandler(w http.ResponseWriter, r *http.Request) {
 		// handle incoming peer
 
 		// write response
-		w.Write([]byte("PeersHandler POST not implemented\n"))
+		w.Write([]byte("Peer POST not implemented"))
 
 	case "GET":
 		// write response
-		w.Write([]byte("PeersHandler GET not implemented\n"))
+
+		response := htmlHeader
+		response += "<h1> Peer List </h1>"
+		response += "<p>Served from " + s.myLoc + "\n"
+		response += "total of " + strconv.Itoa(len(s.peers)) + " peers\n"
+		response += "<pre>\n"
+		w.Write([]byte(response))
+
+		for _, p := range s.peers {
+			jsonBody, err := json.Marshal(p)
+			if err != nil {
+				http.Error(w, "Error converting peer to json",
+					http.StatusInternalServerError)
+			}
+			w.Write(jsonBody)
+			w.Write([]byte("\n"))
+			//			w.Write([]byte(p.Info()))
+		}
+
+		w.Write([]byte("</pre>\n" + htmlTrailer))
 
 	default:
 		reason := "Invalid request method: " + r.Method
@@ -83,7 +83,7 @@ func PeersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func PingHandler(w http.ResponseWriter, r *http.Request) {
+func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 	//var h http.HandlerFunc
 	switch r.Method {
 	case "POST":
@@ -99,7 +99,7 @@ func PingHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "GET":
 		// write response
-		w.Write(pingResponse())
+		w.Write(s.pingResponse())
 
 	default:
 		reason := "Invalid request method: " + r.Method
@@ -113,34 +113,33 @@ var (
 	routelist   string
 )
 
-func init() {
-	routelist = "<ul>\n"
-	for _, route := range Routes {
-		routelist += bullet(route.uri, route.doc)
-	}
-	routelist += "</ul>\n"
-
-}
-
 func bullet(url, text string) string {
 	return "<li><a href=\"" + url + "\">" + text + "</a></li>\n"
 }
 
-func rootResponse() []byte {
+func (s *meshSrv) rootResponse() []byte {
+	if len(routelist) == 0 { // TODO: or if routes changed...
+		routelist = "<ul>\n"
+		for _, route := range s.routes {
+			routelist += bullet(route.uri, route.doc)
+		}
+		routelist += "</ul>\n"
+	}
+
 	response := htmlHeader
 	response += "<h1> pingmesh </h1>"
 	response += "<p>Accessible URLs are:\n"
 	response += routelist
-	response += "<p>Served from " + appState.myLoc + "\n"
+	response += "<p>Served from " + s.myLoc + "\n"
 	response += htmlTrailer
 
 	return []byte(response)
 }
 
-func pingResponse() []byte {
+func (s *meshSrv) pingResponse() []byte {
 	response := htmlHeader
 	response += "<h1> pingResponse </h1>"
-	response += "<p>Served from " + appState.myLoc + "\n"
+	response += "<p>Served from " + s.myLoc + "\n"
 	response += htmlTrailer
 
 	return []byte(response)

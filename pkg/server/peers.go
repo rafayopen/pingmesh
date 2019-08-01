@@ -1,45 +1,76 @@
-// client implements the pingmesh request generator
-package client
+package server
 
 import (
-	"github.com/rafayopen/pingmesh/pkg/server"
-	//	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
-	//	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
-	//	"fmt"
-	//	"log"
-	//	"math"
-	//	"sync"
-	//	"time"
+	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
+	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
+
+	"fmt"
+	"log"
+	"math"
+	"time"
 )
 
-func AddPeer(url string, numTests, pingDelay int) {
-	// Create a new peer -- and increment the server's wait group
-	peer := server.PingmeshServer().NewPeer(url, numTests, pingDelay)
-	go peer.Ping()
+type peer struct {
+	// configuration settings -- must be exported so JSON will dump them
+	Url      string
+	NumTries int
+	Delay    int
+	ms       *meshSrv
+
+	// auto-updated
+
+	// time we started pinging this peer
+	Start time.Time
+
+	// most recent ping response
+	LastPing time.Time
 }
 
-/*
-// Pinger sends HTTP request(s) to the given host:port/uri and captures detailed timing
-// information. It repeats the ping request after a delay (in time.Seconds).  If delay
-// is zero Pinger will just ping once and return.
-//
-// Pinger holds ping results in memory, available to peers and other clients via the
-// REST API.
-//
-// The url parameter should be a fully qualified URL.  The done chan allows the parent
-// to shut down the goroutine by closing the channel, or to adjust the delay parameter
-// by sending an int.
-func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) {
-	// this task recorded in the waitgroup: clear waitgroup on return
-	defer wg.Done()
+////
+//  NewPeer creates a new peer and increments the server's WaitGroup by one
+//  (this needs to happen before invoking the goroutine)
+func (ms *meshSrv) NewPeer(url string, numTries, delay int) peer {
+	////
+	//  ONLY create a NewPeer if you are planning to call Ping right after!
+	ms.WaitGroup().Add(1)
+	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
+	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
+
 	if numTries == 0 {
 		numTries = math.MaxInt32
 	}
 
-	pm := server.PingmeshServer()
+	p := peer{
+		Url:      url,
+		NumTries: numTries,
+		Delay:    delay,
+		ms:       ms,
+		Start:    time.Now(),
+	}
 
-	if pm.Verbose() > 1 {
-		log.Println("ping", url)
+	ms.peers = append(ms.peers, p)
+	if ms.Verbose() > 1 {
+		log.Println("added peer", p.Info(), "total", len(ms.peers), "peers")
+	}
+	return p
+}
+
+func (p *peer) Info() string {
+	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.NumTries, p.Start)
+}
+
+// PingPeer sends HTTP request(s) to the configured host:port/uri and captures detailed
+// timing information. It repeats the ping request after a delay (in time.Seconds).
+//
+// PingPeer stores ping results in peer state, available via meshSrv to clients via the
+// REST API.
+func (p *peer) Ping() {
+	//func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup)
+	// this task recorded in the waitgroup: clear waitgroup on return
+	defer p.ms.WaitGroup().Done()
+
+	if p.ms.Verbose() > 1 {
+		log.Println("ping", p.Url)
 	}
 
 	var count int64
@@ -51,10 +82,10 @@ func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) 
 
 	for {
 		// TODO -- replace pt.FetchURL with a version that obeys the REST API design
-		ptResult := pt.FetchURL(url, pm.MyLocation())
+		ptResult := pt.FetchURL(p.Url, p.ms.MyLocation())
 		if nil == ptResult {
 			failcount++
-			log.Println("fetch failure", failcount, "of", maxfail, "on", url)
+			log.Println("fetch failure", failcount, "of", maxfail, "on", p.Url)
 			if failcount > maxfail {
 				return
 			}
@@ -90,14 +121,14 @@ func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) 
 			}
 			count++
 
-			if pm.Verbose() > 0 {
+			if p.ms.Verbose() > 0 {
 				fmt.Println(ptResult.MsecTsv())
 			}
 
-			if pm.CwFlag() {
+			if p.ms.CwFlag() {
 				metric := pt.Msec(ptResult.TcpHs)
-				myLocation := pm.MyLocation()
-				if pm.Verbose() > 1 {
+				myLocation := p.ms.MyLocation()
+				if p.ms.Verbose() > 1 {
 					log.Println("publishing TCP RTT", metric, "msec to CloudWatch ", ns)
 				}
 				respCode := "0"
@@ -109,30 +140,30 @@ func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup) 
 
 				////
 				// Publish my location (IP or REP_LOCATION) and their location (the URL for now)
-				cw.PublishRespTime(myLocation, url, respCode, metric, mn, ns)
+				cw.PublishRespTime(myLocation, p.Url, respCode, metric, mn, ns)
 				// NOTE: using network RTT estimate (TcpHs) rather than full page response time
 			}
 		}
 
-		if count >= int64(numTries) {
+		if count >= int64(p.NumTries) {
 			// report stats (see deferred func() above) upon return
 			return
 		}
 
 		select {
-		case <-time.After(time.Duration(delay) * time.Second):
+		case <-time.After(time.Duration(p.Delay) * time.Second):
 			// we waited for the delay and got nothing ... loop around
 
-		case newdelay, more := <-done:
+		case newdelay, more := <-p.ms.DoneChan():
 			if !more {
 				// channel is closed, we are done -- goodbye
 				return
 			}
 			// else we got a new delay on this channel
-			delay = newdelay
+			p.Delay = newdelay
 		}
 
-		if delay <= 0 {
+		if p.Delay <= 0 {
 			// we were signaled to stop
 			return
 		}
@@ -156,4 +187,3 @@ func Hhmmss(secs int64) string {
 	}
 	return fmt.Sprintf("%ds", secs)
 }
-*/

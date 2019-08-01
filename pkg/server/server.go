@@ -11,7 +11,7 @@ import (
 // StartServer runs a web server to listen on the given port.  It never returns, so
 // invoke it with go StartServer(yourPort, routes).  Handlers and application state are
 // set up separately.
-func StartServer(port int) error {
+func (s *meshSrv) StartServer(port int) error {
 	max := 5 // 5 tries = 15 seconds (linear backoff -- 5th triangular number)
 
 	addr := fmt.Sprintf(":%d", port)
