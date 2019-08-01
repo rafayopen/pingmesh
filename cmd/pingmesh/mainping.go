@@ -18,6 +18,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -38,13 +40,17 @@ func printUsage() {
 	flag.PrintDefaults()
 }
 
+////
 // main reads command line arguments, sets up signal handler, then
 // starts web server and endpoint pingers
 func main() {
+	////
+	//  flags
 	var (
 		numTests   int
 		pingDelay  int
 		servePort  int
+		reciprocal bool
 		myLocation string
 		cwFlag     bool
 		vf, qf     bool
@@ -53,6 +59,7 @@ func main() {
 
 	flag.IntVar(&pingDelay, "d", 10, "delay in seconds between ping requests")
 	flag.IntVar(&servePort, "s", 0, "server listen port; default zero means don't run a server")
+	flag.BoolVar(&reciprocal, "r", false, "automatically ping myself (if also serving)")
 	flag.IntVar(&numTests, "n", 0, "number of tests to each endpoint (default 0 runs until interrupted)")
 	flag.BoolVar(&cwFlag, "c", false, "publish metrics to CloudWatch")
 	flag.BoolVar(&vf, "v", false, "be more verbose")
@@ -75,9 +82,12 @@ func main() {
 	}
 
 	endpoints := flag.Args() // any remaining arguments are the endpoints to ping
-	if len(endpoints) == 0 {
-		printUsage()
-		return
+	if len(endpoints) == 0 && !reciprocal {
+		if servePort == 0 {
+			printUsage()
+			return
+		}
+		fmt.Println("NOTE: not starting any pings, just serving")
 	}
 
 	pm := server.PingmeshServer()
@@ -87,13 +97,6 @@ func main() {
 	}
 	pm.SetupState(myLocation, cwFlag, verbose)
 
-	////
-	// Start server if a listen port has been configured
-	if servePort > 0 {
-		go pm.StartServer(servePort)
-		time.Sleep(1 * time.Second) // let it come up before starting pings
-	}
-
 	// set up waitgroup to cleanly exit process if all ping threads exit
 	wg := new(sync.WaitGroup)
 	pm.SetWaitGroup(wg)
@@ -101,6 +104,17 @@ func main() {
 	// doneChan signals goroutines to exit after signal or other terminating condition
 	var doneChan = make(chan int)
 	pm.SetDoneChan(doneChan)
+
+	////
+	// Start server if a listen port has been configured
+	if servePort > 0 {
+		go pm.StartServer(servePort)
+		time.Sleep(1 * time.Second) // let it come up before starting pings
+		if reciprocal {
+			url := "http://localhost:" + strconv.Itoa(servePort) + "/v1/ping"
+			client.AddPeer(url, pm.MyLocation(), numTests, pingDelay)
+		}
+	}
 
 	////
 	// Set up signal handler thread to close down Pinger goroutines gracefully
@@ -133,7 +147,13 @@ func main() {
 	////
 	// Start a Pinger for each endpoint on the command line
 	for _, url := range endpoints {
-		client.AddPeer(url, numTests, pingDelay)
+		location := pm.MyLocation()
+		// TODO: take location out of argument (URL parameter)
+		parts := strings.Split(url, "#")
+		if len(parts) > 1 {
+			location = parts[1]
+		}
+		client.AddPeer(url, location, numTests, pingDelay)
 	}
 
 	if verbose > 1 {

@@ -5,8 +5,8 @@ import (
 	"github.com/rafayopen/pingmesh/pkg/server"
 )
 
-func AddPeer(url string, numTests, pingDelay int) {
+func AddPeer(url, loc string, numTests, pingDelay int) {
 	// Create a new peer -- and increment the server's wait group
-	peer := server.PingmeshServer().NewPeer(url, numTests, pingDelay)
+	peer := server.PingmeshServer().NewPeer(url, loc, numTests, pingDelay)
 	go peer.Ping()
 }

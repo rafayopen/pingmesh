@@ -22,7 +22,7 @@ type meshSrv struct {
 	verbose int             // controls logging to stdout
 
 	routes []route   // HTTP request to handler function mapping (plus info)
-	peers  []peer    // information about ping mesh peers (see peers.go)
+	peers  []*peer   // information about ping mesh peers (see peers.go)
 	start  time.Time // time we started the pingmesh server itself
 }
 

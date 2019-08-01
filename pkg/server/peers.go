@@ -13,77 +13,81 @@ import (
 ////
 //  peer holds information about an endpoint that we are trying to ping.  The
 //  meshSrv instance referenced in peer holds the array of peer objects that are
-//  currently active.
+//  currently active.  Members must be exported for JSON to dump them.
 type peer struct {
-	// configuration settings -- must be exported so JSON will dump them
-	Url      string
-	NumTries int
-	Delay    int
-	ms       *meshSrv
+	Url      string // endpoint to ping
+	Limit    int    // number of pings before exiting
+	Delay    int    // delay between pings
+	Location string // location of this peer
+
+	Pings    int       // number of successful responses
+	Start    time.Time // time we started pinging this peer
+	LastPing time.Time // most recent ping response
+
+	Summary pt.PingTimes // aggregates ping time results
+
+	ms *meshSrv // point back to the server for receivers to access state
 
 	// ping response fields go here ... TODO
 
 	// auto-updated fields
-
-	Start    time.Time // time we started pinging this peer
-	LastPing time.Time // most recent ping response
 }
 
 ////
 //  NewPeer creates a new peer and increments the server's WaitGroup by one
 //  (this needs to happen before invoking the goroutine)
-func (ms *meshSrv) NewPeer(url string, numTries, delay int) peer {
+func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 	////
 	//  ONLY create a NewPeer if you are planning to call Ping right after!
 	ms.WaitGroup().Add(1)
 	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
 	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
 
-	if numTries == 0 {
-		numTries = math.MaxInt32
-	}
-
 	p := peer{
 		Url:      url,
-		NumTries: numTries,
+		Limit:    limit,
 		Delay:    delay,
+		Location: location,
 		ms:       ms,
 		Start:    time.Now(),
 	}
 
-	ms.peers = append(ms.peers, p)
+	ms.peers = append(ms.peers, &p)
 
-	return p
+	return &p
 }
 
 ////
 //  Info returns a string with basic peer state
 func (p *peer) Info() string {
-	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.NumTries, p.Start)
+	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.Limit, p.Start)
 }
 
 ////
 //  Ping sends HTTP requests to the configured Url and captures detailed timing
 //  information. It repeats the ping request after a delay (in time.Seconds).
 func (p *peer) Ping() {
-	//func Pinger(url string, numTries, delay int, done chan int, wg *sync.WaitGroup)
-	// this task recorded in the waitgroup: clear waitgroup on return
+	// this task is recorded in the waitgroup, so clear waitgroup on return
 	defer p.ms.WaitGroup().Done()
 
 	if p.ms.Verbose() > 1 {
 		log.Println("ping", p.Url)
 	}
 
-	var count int64
+	mn := "TCP RTT"  // CloudWatch metric name
+	ns := "pingmesh" // Cloudwatch namespace
+
+	limit := p.Limit
+	if limit == 0 {
+		limit = math.MaxInt32
+	}
+
 	failcount := 0
 	maxfail := 10
-	var ptSummary pt.PingTimes // aggregates ping time results
-	mn := "TCP RTT"            // CloudWatch metric name
-	ns := "pingmesh"           // Cloudwatch namespace
 
 	for {
 		// TODO -- replace pt.FetchURL with a version that obeys the REST API design
-		ptResult := pt.FetchURL(p.Url, p.ms.MyLocation())
+		ptResult := pt.FetchURL(p.Url, p.Location)
 		if nil == ptResult {
 			failcount++
 			log.Println("fetch failure", failcount, "of", maxfail, "on", p.Url)
@@ -91,39 +95,47 @@ func (p *peer) Ping() {
 				return
 			}
 		} else {
-			if count == 0 {
-				ptSummary = *ptResult
+			if p.Pings == 0 {
+				////
+				// first ping -- initialize ptResult and set up deferred reporter
+				p.Pings = 1
+				p.LastPing = time.Now()
+				p.Summary = *ptResult
 				defer func() { // summary printer, runs upon return
-					elapsed := Hhmmss(time.Now().Unix() - ptSummary.Start.Unix())
+					elapsed := Hhmmss(time.Now().Unix() - p.Summary.Start.Unix())
 
-					fc := float64(count) // count will be 1 by time this runs
+					fc := float64(p.Pings)
 					fmt.Printf("\nRecorded %d samples in %s, average values:\n"+"%s"+
 						"%d %-6s\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t\t%d\t%s\t%s\n\n",
-						count, elapsed, pt.PingTimesHeader(),
-						count, elapsed,
-						pt.Msec(ptSummary.DnsLk)/fc,
-						pt.Msec(ptSummary.TcpHs)/fc,
-						pt.Msec(ptSummary.TlsHs)/fc,
-						pt.Msec(ptSummary.Reply)/fc,
-						pt.Msec(ptSummary.Close)/fc,
-						pt.Msec(ptSummary.RespTime())/fc,
-						ptSummary.Size/count,
+						p.Pings, elapsed, pt.PingTimesHeader(),
+						p.Pings, elapsed,
+						pt.Msec(p.Summary.DnsLk)/fc,
+						pt.Msec(p.Summary.TcpHs)/fc,
+						pt.Msec(p.Summary.TlsHs)/fc,
+						pt.Msec(p.Summary.Reply)/fc,
+						pt.Msec(p.Summary.Close)/fc,
+						pt.Msec(p.Summary.RespTime())/fc,
+						p.Summary.Size/int64(p.Pings),
 						"",
-						*ptSummary.DestUrl)
+						*p.Summary.DestUrl)
 				}()
 			} else {
-				ptSummary.DnsLk += ptResult.DnsLk
-				ptSummary.TcpHs += ptResult.TcpHs
-				ptSummary.TlsHs += ptResult.TlsHs
-				ptSummary.Reply += ptResult.Reply
-				ptSummary.Close += ptResult.Close
-				ptSummary.Total += ptResult.Total
-				ptSummary.Size += ptResult.Size
+				// TODO: take a write lock on p before this block updates
+				// take a read lock on p in order to read/return its result
+				p.Pings++
+				p.LastPing = time.Now()
+
+				p.Summary.DnsLk += ptResult.DnsLk
+				p.Summary.TcpHs += ptResult.TcpHs
+				p.Summary.TlsHs += ptResult.TlsHs
+				p.Summary.Reply += ptResult.Reply
+				p.Summary.Close += ptResult.Close
+				p.Summary.Total += ptResult.Total
+				p.Summary.Size += ptResult.Size
 			}
-			count++
 
 			if p.ms.Verbose() > 0 {
-				fmt.Println(ptResult.MsecTsv())
+				fmt.Println(p.Pings, ptResult.MsecTsv())
 			}
 
 			if p.ms.CwFlag() {
@@ -146,7 +158,7 @@ func (p *peer) Ping() {
 			}
 		}
 
-		if count >= int64(p.NumTries) {
+		if p.Pings >= limit {
 			// report stats (see deferred func() above) upon return
 			return
 		}
