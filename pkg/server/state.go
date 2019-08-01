@@ -2,6 +2,7 @@ package server
 
 import (
 	"sync"
+	"time"
 )
 
 // define state types
@@ -13,17 +14,21 @@ type meshSrv struct {
 	cwFlag  bool
 	verbose int
 
-	routes []routes
-	peers  []*peer
+	routes []route
+	peers  []peer
+
+	start time.Time // time we started the ping
 }
 
 var myServer *meshSrv
 
+func init() {
+	myServer = new(meshSrv)
+	myServer.start = time.Now()
+	myServer.SetupRoutes()
+}
+
 func PingmeshServer() *meshSrv {
-	if myServer == nil {
-		myServer = new(meshSrv)
-		myServer.SetupRoutes()
-	}
 	return myServer
 }
 

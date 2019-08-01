@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
+	//	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -60,22 +60,19 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 		response := htmlHeader
 		response += "<h1> Peer List </h1>"
 		response += "<p>Served from " + s.myLoc + "\n"
-		response += "total of" + strconv.Itoa(len(s.peers)) + "peers\n"
+		response += "total of " + strconv.Itoa(len(s.peers)) + " peers\n"
 		response += "<pre>\n"
 		w.Write([]byte(response))
 
-		for _, peer := range s.peers {
-			jsonBody, err := json.Marshal(peer)
+		for _, p := range s.peers {
+			jsonBody, err := json.Marshal(p)
 			if err != nil {
 				http.Error(w, "Error converting peer to json",
 					http.StatusInternalServerError)
 			}
-			if s.verbose > 1 {
-				fmt.Printf("dump peer json %v\n", jsonBody)
-			}
 			w.Write(jsonBody)
 			w.Write([]byte("\n"))
-			w.Write([]byte(peer.Info()))
+			//			w.Write([]byte(p.Info()))
 		}
 
 		w.Write([]byte("</pre>\n" + htmlTrailer))

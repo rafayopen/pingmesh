@@ -11,21 +11,25 @@ import (
 )
 
 type peer struct {
-	// configuration settings
-	url      string
-	numTries int
-	delay    int
+	// configuration settings -- must be exported so JSON will dump them
+	Url      string
+	NumTries int
+	Delay    int
 	ms       *meshSrv
 
 	// auto-updated
-	start    time.Time // time we started the ping
-	lastPing time.Time // most recent ping response
+
+	// time we started pinging this peer
+	Start time.Time
+
+	// most recent ping response
+	LastPing time.Time
 }
 
 ////
 //  NewPeer creates a new peer and increments the server's WaitGroup by one
 //  (this needs to happen before invoking the goroutine)
-func (ms *meshSrv) NewPeer(url string, numTries, delay int) *peer {
+func (ms *meshSrv) NewPeer(url string, numTries, delay int) peer {
 	////
 	//  ONLY create a NewPeer if you are planning to call Ping right after!
 	ms.WaitGroup().Add(1)
@@ -36,23 +40,23 @@ func (ms *meshSrv) NewPeer(url string, numTries, delay int) *peer {
 		numTries = math.MaxInt32
 	}
 
-	p := &peer{
-		url:      url,
-		numTries: numTries,
-		delay:    delay,
+	p := peer{
+		Url:      url,
+		NumTries: numTries,
+		Delay:    delay,
 		ms:       ms,
-		start:    time.Now(),
+		Start:    time.Now(),
 	}
 
 	ms.peers = append(ms.peers, p)
 	if ms.Verbose() > 1 {
-		log.Println("added peer", p.url, "total", len(ms.peers), "peers")
+		log.Println("added peer", p.Info(), "total", len(ms.peers), "peers")
 	}
 	return p
 }
 
 func (p *peer) Info() string {
-	return fmt.Sprintf("%s %d %d of %d started %v\n", p.url, p.delay, 0, p.numTries, p.start)
+	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.NumTries, p.Start)
 }
 
 // PingPeer sends HTTP request(s) to the configured host:port/uri and captures detailed
@@ -66,7 +70,7 @@ func (p *peer) Ping() {
 	defer p.ms.WaitGroup().Done()
 
 	if p.ms.Verbose() > 1 {
-		log.Println("ping", p.url)
+		log.Println("ping", p.Url)
 	}
 
 	var count int64
@@ -78,10 +82,10 @@ func (p *peer) Ping() {
 
 	for {
 		// TODO -- replace pt.FetchURL with a version that obeys the REST API design
-		ptResult := pt.FetchURL(p.url, p.ms.MyLocation())
+		ptResult := pt.FetchURL(p.Url, p.ms.MyLocation())
 		if nil == ptResult {
 			failcount++
-			log.Println("fetch failure", failcount, "of", maxfail, "on", p.url)
+			log.Println("fetch failure", failcount, "of", maxfail, "on", p.Url)
 			if failcount > maxfail {
 				return
 			}
@@ -136,18 +140,18 @@ func (p *peer) Ping() {
 
 				////
 				// Publish my location (IP or REP_LOCATION) and their location (the URL for now)
-				cw.PublishRespTime(myLocation, p.url, respCode, metric, mn, ns)
+				cw.PublishRespTime(myLocation, p.Url, respCode, metric, mn, ns)
 				// NOTE: using network RTT estimate (TcpHs) rather than full page response time
 			}
 		}
 
-		if count >= int64(p.numTries) {
+		if count >= int64(p.NumTries) {
 			// report stats (see deferred func() above) upon return
 			return
 		}
 
 		select {
-		case <-time.After(time.Duration(p.delay) * time.Second):
+		case <-time.After(time.Duration(p.Delay) * time.Second):
 			// we waited for the delay and got nothing ... loop around
 
 		case newdelay, more := <-p.ms.DoneChan():
@@ -156,10 +160,10 @@ func (p *peer) Ping() {
 				return
 			}
 			// else we got a new delay on this channel
-			p.delay = newdelay
+			p.Delay = newdelay
 		}
 
-		if p.delay <= 0 {
+		if p.Delay <= 0 {
 			// we were signaled to stop
 			return
 		}

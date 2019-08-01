@@ -8,14 +8,14 @@ import (
 
 ////
 //  routes connects the incoming URI with a doc string and response handler
-type routes struct {
+type route struct {
 	uri     string
 	doc     string
 	handler func(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *meshSrv) SetupRoutes() {
-	s.routes = []routes{
+	s.routes = []route{
 		{"/", "root", s.RootHandler},
 		{"/v1", "root", s.RootHandler},
 		{"/v1/metrics", "get memory statistics", s.MetricsHandler},
