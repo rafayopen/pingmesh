@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -48,6 +49,8 @@ func bullet(url, text string) string {
 }
 
 func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
+	//log.Println("RootHandler")
+
 	switch r.Method {
 	case "GET":
 		// return default pages with links to other API endpoints
@@ -77,6 +80,8 @@ func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
+	//log.Println("MetricsHandler")
+
 	switch r.Method {
 	case "GET":
 		memStats := GetMemStatSummary()
@@ -94,6 +99,8 @@ func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
+	//log.Println("PeersHandler")
+
 	switch r.Method {
 	case "POST":
 		////
@@ -133,6 +140,8 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
+	//log.Println("PingHandler")
+
 	//var h http.HandlerFunc
 	switch r.Method {
 	case "POST":
@@ -161,7 +170,13 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+////
+//  QuitHandler reports the currently active peers for this server and
+//  then closes the done channel, causing the pinger peers to exit.
+//  When they have exited main() will return.
 func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("QuitHandler called, shutting down server")
+
 	response := htmlHeader
 	response += "<h1> quitResponse </h1>"
 	response += "<p>Server in " + s.myLoc + " shutting down with these peers:\n<pre>\n"
@@ -175,5 +190,7 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("</pre>\n" + htmlTrailer))
+	////
+	//  Close the meshSrv done channel so the pinger peers will exit.
 	close(s.done)
 }
