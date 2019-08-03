@@ -128,10 +128,14 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(s.peers); err != nil {
-			http.Error(w, "Error converting peer to json",
-				http.StatusInternalServerError)
-		}
+		func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			if err := enc.Encode(s.peers); err != nil {
+				http.Error(w, "Error converting peer to json",
+					http.StatusInternalServerError)
+			}
+		}()
 
 	default:
 		reason := "Invalid request method: " + r.Method
@@ -184,10 +188,14 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(s.peers); err != nil {
-		http.Error(w, "Error converting peer to json",
-			http.StatusInternalServerError)
-	}
+	func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if err := enc.Encode(s.peers); err != nil {
+			http.Error(w, "Error converting peer to json",
+				http.StatusInternalServerError)
+		}
+	}()
 
 	w.Write([]byte("</pre>\n" + htmlTrailer))
 	////

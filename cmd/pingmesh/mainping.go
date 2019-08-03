@@ -108,7 +108,7 @@ func main() {
 	////
 	// Start server if a listen port has been configured
 	if servePort > 0 {
-		go pm.StartServer(servePort)
+		go server.Start(servePort)
 		time.Sleep(1 * time.Second) // let it come up before starting pings
 		if reciprocal {
 			url := "http://localhost:" + strconv.Itoa(servePort) + "/v1/ping"

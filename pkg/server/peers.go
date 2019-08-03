@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -29,8 +30,8 @@ type peer struct {
 
 	Summary pt.PingTimes // aggregates ping time results
 
-	ms *meshSrv // point back to the server for receivers to access state
-
+	ms *meshSrv   // point back to the server for receivers to access state
+	mu sync.Mutex // make peer reentrant
 	// ping response fields go here ... TODO
 
 	// auto-updated fields
@@ -129,7 +130,11 @@ func (p *peer) Ping() {
 
 		// result nil, something totally failed
 		case nil == ptResult:
-			p.Fails++
+			func() {
+				p.mu.Lock()
+				defer p.mu.Unlock()
+				p.Fails++
+			}()
 			log.Println("fetch failure", p.Fails, "of", maxfail, "on", p.Url)
 			if p.Fails >= maxfail {
 				return
@@ -138,30 +143,38 @@ func (p *peer) Ping() {
 
 		// HTTP 200 OK
 		case ptResult.RespCode == 200:
-			// TODO: take a write lock on p before this block updates
+			// Take a write lock on this peer before updating values, then
 			// take a read lock on p in order to read/return its result
-			// (make reentrant)
-			p.Pings++
-			now := time.Now()
-			p.LastPing = now
-			if p.Pings == 1 {
-				////
-				// first ping -- initialize ptResult
-				p.FirstPing = now
-				p.Summary = *ptResult
-			} else {
-				p.Summary.DnsLk += ptResult.DnsLk
-				p.Summary.TcpHs += ptResult.TcpHs
-				p.Summary.TlsHs += ptResult.TlsHs
-				p.Summary.Reply += ptResult.Reply
-				p.Summary.Close += ptResult.Close
-				p.Summary.Total += ptResult.Total
-				p.Summary.Size += ptResult.Size
-			}
+			// in handlers.go (i.e., make each peer reentrant, also peers)
+			func() {
+				p.mu.Lock()
+				defer p.mu.Unlock()
+				p.Pings++
+				now := time.Now()
+				p.LastPing = now
+				if p.Pings == 1 {
+					////
+					// first ping -- initialize ptResult
+					p.FirstPing = now
+					p.Summary = *ptResult
+				} else {
+					p.Summary.DnsLk += ptResult.DnsLk
+					p.Summary.TcpHs += ptResult.TcpHs
+					p.Summary.TlsHs += ptResult.TlsHs
+					p.Summary.Reply += ptResult.Reply
+					p.Summary.Close += ptResult.Close
+					p.Summary.Total += ptResult.Total
+					p.Summary.Size += ptResult.Size
+				}
+			}()
 
 		// HTTP 500 series error
 		case ptResult.RespCode > 500:
-			p.Fails++
+			func() {
+				p.mu.Lock()
+				defer p.mu.Unlock()
+				p.Fails++
+			}()
 			log.Println("HTTP error", ptResult.RespCode, "failure", p.Fails, "of", maxfail, "on", p.Url)
 			if p.ms.Verbose() > 0 {
 				fmt.Println(p.Pings, ptResult.MsecTsv())
