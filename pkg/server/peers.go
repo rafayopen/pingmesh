@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"time"
 )
 
@@ -48,6 +49,9 @@ func (p *peer) Ping() {
 	// this task is recorded in the waitgroup, so clear waitgroup on return
 	defer p.ms.WaitGroup().Done()
 
+	// This must come after Done and before Reporter (executes in reverse order)
+	defer p.ms.Delete(p.Url)
+
 	if p.ms.Verbose() > 1 {
 		log.Println("ping", p.Url)
 	}
@@ -61,24 +65,17 @@ func (p *peer) Ping() {
 		limit = math.MaxInt32
 	}
 
-	defer func() {
-		// This defer func needs to come before the reporter func (they execute
-		// in reverse order)
-		fmt.Println("Deregistering pinger for", p.Url)
-		p.ms.Delete(p.Url)
-	}()
-
 	////
-	//  report summary to stdout at the end of the run, however it happens
-	defer func() {
-		elapsed := Hhmmss(time.Now().Unix() - p.Summary.Start.Unix())
-
+	//  Reporter summarizes ping statistics to stdout at the end of the run
+	defer func() { // Reporter
 		if p.Pings == 0 {
-			fmt.Printf("\nRecorded 0 valid samples in %s, %d of %d failures\n", elapsed, p.Fails, maxfail)
+			fmt.Printf("\nRecorded 0 valid samples, %d of %d failures\n", p.Fails, maxfail)
 			return
 		}
 
 		fc := float64(p.Pings)
+		elapsed := Hhmmss(time.Now().Unix() - p.Summary.Start.Unix())
+
 		fmt.Printf("\nRecorded %d samples in %s, average values:\n"+"%s"+
 			"%d %-6s\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t\t%d\t%s\t%s\n\n",
 			p.Pings, elapsed, pt.PingTimesHeader(),
@@ -96,11 +93,23 @@ func (p *peer) Ping() {
 
 	// TODO -- replace pt.FetchURL with a version that obeys the REST API design
 
+	////
+	// jitterDelayPct returns a sleep time in msec based upon p.Delay with a
+	// jitter of +/- pct (should be between 1 and 10)
+	jitterDelayPct := func(pct int) time.Duration {
+		if pct < 1 {
+			pct = 1
+		}
+		msec := float64(p.Delay * 1000)
+		jitter := (msec * float64(pct) / 100.0) * (rand.Float64() - 0.5)
+		return time.Duration(msec+jitter) * time.Millisecond
+	}
+
 	for {
 		////
 		// Sleep first, allows risk-free continue from error cases below
 		select {
-		case <-time.After(time.Duration(p.Delay) * time.Second):
+		case <-time.After(jitterDelayPct(10)):
 			// we waited for the delay and got nothing ... loop around
 
 		case newdelay, more := <-p.ms.DoneChan():
