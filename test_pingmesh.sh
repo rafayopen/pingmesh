@@ -1,5 +1,7 @@
 #!/bin/sh
 PM="cmd/pingmesh/pingmesh"
+CW=${CW:-""} # use -c to test with cloudwatch
+
 usage="Usage: $0 [number of instances]"
 
 if [ "$1" = "loc" ] ; then
@@ -34,7 +36,7 @@ fi
 urls=""
 for i in $(seq $min $max) ; do
     urls="$urls http://127.0.0.1:$i/v1/ping"
-    $PM -s $i -c -d 10 $urls &
+    $PM $CW -s $i -d 10 $urls &
 done
 
 wait
