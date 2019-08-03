@@ -20,9 +20,11 @@ type peer struct {
 	Delay    int    // delay between pings
 	Location string // location of this peer
 
-	Pings    int       // number of successful responses
-	Start    time.Time // time we started pinging this peer
-	LastPing time.Time // most recent ping response
+	Pings     int       // number of successful responses
+	Fails     int       // number of ping failures seen
+	Start     time.Time // time we started pinging this peer
+	FirstPing time.Time // first recent ping response
+	LastPing  time.Time // most recent ping response
 
 	Summary pt.PingTimes // aggregates ping time results
 
@@ -31,30 +33,6 @@ type peer struct {
 	// ping response fields go here ... TODO
 
 	// auto-updated fields
-}
-
-////
-//  NewPeer creates a new peer and increments the server's WaitGroup by one
-//  (this needs to happen before invoking the goroutine)
-func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
-	////
-	//  ONLY create a NewPeer if you are planning to call Ping right after!
-	ms.WaitGroup().Add(1)
-	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
-	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
-
-	p := peer{
-		Url:      url,
-		Limit:    limit,
-		Delay:    delay,
-		Location: location,
-		ms:       ms,
-		Start:    time.Now(),
-	}
-
-	ms.peers = append(ms.peers, &p)
-
-	return &p
 }
 
 ////
@@ -74,95 +52,53 @@ func (p *peer) Ping() {
 		log.Println("ping", p.Url)
 	}
 
+	maxfail := 10    // max before thread quits trying
 	mn := "TCP RTT"  // CloudWatch metric name
 	ns := "pingmesh" // Cloudwatch namespace
 
-	limit := p.Limit
+	limit := p.Limit // number of pings before we quit, "forever" if zero
 	if limit == 0 {
 		limit = math.MaxInt32
 	}
 
-	failcount := 0
-	maxfail := 10
+	defer func() {
+		// This defer func needs to come before the reporter func (they execute
+		// in reverse order)
+		fmt.Println("Deregistering pinger for", p.Url)
+		p.ms.Delete(p.Url)
+	}()
 
-	for {
-		// TODO -- replace pt.FetchURL with a version that obeys the REST API design
-		ptResult := pt.FetchURL(p.Url, p.Location)
-		if nil == ptResult {
-			failcount++
-			log.Println("fetch failure", failcount, "of", maxfail, "on", p.Url)
-			if failcount > maxfail {
-				return
-			}
-		} else {
-			if p.Pings == 0 {
-				////
-				// first ping -- initialize ptResult and set up deferred reporter
-				p.Pings = 1
-				p.LastPing = time.Now()
-				p.Summary = *ptResult
-				defer func() { // summary printer, runs upon return
-					elapsed := Hhmmss(time.Now().Unix() - p.Summary.Start.Unix())
+	////
+	//  report summary to stdout at the end of the run, however it happens
+	defer func() {
+		elapsed := Hhmmss(time.Now().Unix() - p.Summary.Start.Unix())
 
-					fc := float64(p.Pings)
-					fmt.Printf("\nRecorded %d samples in %s, average values:\n"+"%s"+
-						"%d %-6s\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t\t%d\t%s\t%s\n\n",
-						p.Pings, elapsed, pt.PingTimesHeader(),
-						p.Pings, elapsed,
-						pt.Msec(p.Summary.DnsLk)/fc,
-						pt.Msec(p.Summary.TcpHs)/fc,
-						pt.Msec(p.Summary.TlsHs)/fc,
-						pt.Msec(p.Summary.Reply)/fc,
-						pt.Msec(p.Summary.Close)/fc,
-						pt.Msec(p.Summary.RespTime())/fc,
-						p.Summary.Size/int64(p.Pings),
-						"",
-						*p.Summary.DestUrl)
-				}()
-			} else {
-				// TODO: take a write lock on p before this block updates
-				// take a read lock on p in order to read/return its result
-				p.Pings++
-				p.LastPing = time.Now()
-
-				p.Summary.DnsLk += ptResult.DnsLk
-				p.Summary.TcpHs += ptResult.TcpHs
-				p.Summary.TlsHs += ptResult.TlsHs
-				p.Summary.Reply += ptResult.Reply
-				p.Summary.Close += ptResult.Close
-				p.Summary.Total += ptResult.Total
-				p.Summary.Size += ptResult.Size
-			}
-
-			if p.ms.Verbose() > 0 {
-				fmt.Println(p.Pings, ptResult.MsecTsv())
-			}
-
-			if p.ms.CwFlag() {
-				metric := pt.Msec(ptResult.TcpHs)
-				myLocation := p.ms.MyLocation()
-				if p.ms.Verbose() > 1 {
-					log.Println("publishing TCP RTT", metric, "msec to CloudWatch ", ns)
-				}
-				respCode := "0"
-				if ptResult.RespCode >= 0 {
-					// 000 in cloudwatch indicates it was a zero return code from lower layer
-					// while single digit 0 indicates an error making the request
-					respCode = fmt.Sprintf("%03d", ptResult.RespCode)
-				}
-
-				////
-				// Publish my location (IP or REP_LOCATION) and their location (the URL for now)
-				cw.PublishRespTime(myLocation, p.Url, respCode, metric, mn, ns)
-				// NOTE: using network RTT estimate (TcpHs) rather than full page response time
-			}
-		}
-
-		if p.Pings >= limit {
-			// report stats (see deferred func() above) upon return
+		if p.Pings == 0 {
+			fmt.Printf("\nRecorded 0 valid samples in %s, %d of %d failures\n", elapsed, p.Fails, maxfail)
 			return
 		}
 
+		fc := float64(p.Pings)
+		fmt.Printf("\nRecorded %d samples in %s, average values:\n"+"%s"+
+			"%d %-6s\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t\t%d\t%s\t%s\n\n",
+			p.Pings, elapsed, pt.PingTimesHeader(),
+			p.Pings, elapsed,
+			pt.Msec(p.Summary.DnsLk)/fc,
+			pt.Msec(p.Summary.TcpHs)/fc,
+			pt.Msec(p.Summary.TlsHs)/fc,
+			pt.Msec(p.Summary.Reply)/fc,
+			pt.Msec(p.Summary.Close)/fc,
+			pt.Msec(p.Summary.RespTime())/fc,
+			p.Summary.Size/int64(p.Pings),
+			"",
+			*p.Summary.DestUrl)
+	}()
+
+	// TODO -- replace pt.FetchURL with a version that obeys the REST API design
+
+	for {
+		////
+		// Sleep first, allows risk-free continue from error cases below
 		select {
 		case <-time.After(time.Duration(p.Delay) * time.Second):
 			// we waited for the delay and got nothing ... loop around
@@ -174,6 +110,94 @@ func (p *peer) Ping() {
 			}
 			// else we got a new delay on this channel
 			p.Delay = newdelay
+			// we did not (finish) our sleep in this case ...
+		}
+
+		////
+		// Try to fetch the URL
+		ptResult := pt.FetchURL(p.Url, p.Location)
+		switch {
+
+		// result nil, something totally failed
+		case nil == ptResult:
+			p.Fails++
+			log.Println("fetch failure", p.Fails, "of", maxfail, "on", p.Url)
+			if p.Fails >= maxfail {
+				return
+			}
+			continue
+
+		// HTTP 200 OK
+		case ptResult.RespCode == 200:
+			// TODO: take a write lock on p before this block updates
+			// take a read lock on p in order to read/return its result
+			// (make reentrant)
+			p.Pings++
+			now := time.Now()
+			p.LastPing = now
+			if p.Pings == 1 {
+				////
+				// first ping -- initialize ptResult
+				p.FirstPing = now
+				p.Summary = *ptResult
+			} else {
+				p.Summary.DnsLk += ptResult.DnsLk
+				p.Summary.TcpHs += ptResult.TcpHs
+				p.Summary.TlsHs += ptResult.TlsHs
+				p.Summary.Reply += ptResult.Reply
+				p.Summary.Close += ptResult.Close
+				p.Summary.Total += ptResult.Total
+				p.Summary.Size += ptResult.Size
+			}
+
+		// HTTP 500 series error
+		case ptResult.RespCode > 500:
+			p.Fails++
+			log.Println("HTTP error", ptResult.RespCode, "failure", p.Fails, "of", maxfail, "on", p.Url)
+			if p.ms.Verbose() > 0 {
+				fmt.Println(p.Pings, ptResult.MsecTsv())
+			}
+			if p.Fails >= maxfail {
+				return
+			}
+			continue
+
+			////
+			// Other HTTP response codes here (error, redirect)
+			////
+		}
+
+		////
+		//  Execution should continue here only in NON-ERROR cases; errors
+		//  continue the for{} above
+		////
+
+		if p.ms.Verbose() > 0 {
+			fmt.Println(p.Pings, ptResult.MsecTsv())
+		}
+
+		if p.ms.CwFlag() {
+			metric := pt.Msec(ptResult.TcpHs)
+			myLocation := p.ms.MyLocation()
+			if p.ms.Verbose() > 1 {
+				log.Println("publishing TCP RTT", metric, "msec to CloudWatch ", ns)
+			}
+			respCode := "0"
+			if ptResult.RespCode >= 0 {
+				// 000 in cloudwatch indicates it was a zero return code from lower layer
+				// while single digit 0 indicates an error making the request
+				respCode = fmt.Sprintf("%03d", ptResult.RespCode)
+			}
+
+			////
+			// Publish my location (IP or REP_LOCATION) and their location (the URL for now)
+			cw.PublishRespTime(myLocation, p.Url, respCode, metric, mn, ns)
+			// NOTE: using network RTT estimate (TcpHs) rather than full page response time
+		}
+
+		if p.Pings >= limit {
+			// report stats (see deferred func() above) upon return
+			return
 		}
 
 		if p.Delay <= 0 {

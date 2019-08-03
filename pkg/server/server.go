@@ -33,3 +33,56 @@ func (s *meshSrv) StartServer(port int) error {
 
 	return err
 }
+
+////
+//  NewPeer creates a new peer and increments the server's WaitGroup by one
+//  (this needs to happen before invoking the goroutine)
+func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
+	////
+	//  ONLY create a NewPeer if you are planning to call Ping right after!
+	ms.WaitGroup().Add(1)
+	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
+	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
+
+	p := peer{
+		Url:      url,
+		Limit:    limit,
+		Delay:    delay,
+		Location: location,
+		ms:       ms,
+		Start:    time.Now(),
+	}
+
+	ms.peers = append(ms.peers, &p)
+
+	return &p
+}
+
+////
+//  DeletePeer removes a peer from the peer list.  The caller (likely
+//  Ping() from a deferred func) will need to call WaitGroup.Done.
+func (ms *meshSrv) Delete(peerUrl string) {
+	var peers []*peer // replacement peer array
+	found := 0
+
+	// TODO: (make reentrant)
+	for _, p := range ms.peers {
+		if p.Url != peerUrl {
+			peers = append(peers, p)
+		} else {
+			found++
+		}
+	}
+	switch found {
+	case 0:
+		log.Println("Warning: failed to delete pinger for", peerUrl)
+		return
+	case 1:
+		if ms.Verbose() > 0 {
+			log.Println("Deleted pinger for", peerUrl)
+		}
+	default:
+		log.Println("Note: deleted", found, "pingers for", peerUrl)
+	}
+	ms.peers = peers
+}
