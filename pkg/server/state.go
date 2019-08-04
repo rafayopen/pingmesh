@@ -16,6 +16,7 @@ import (
 //  private (protected, unexported) data members.
 ////
 type meshSrv struct {
+	start   time.Time       // time we started the pingmesh server itself
 	wg      *sync.WaitGroup // ping and server threads share this wg
 	mu      sync.Mutex      // make meshSrv reentrant (protect peers)
 	done    chan int        // used to signal when threads should exit
@@ -23,10 +24,10 @@ type meshSrv struct {
 	cwFlag  bool            // user flag controls writing to CloudWatch
 	verbose int             // controls logging to stdout
 
-	routes []route   // HTTP request to handler function mapping (plus info)
-	peers  []*peer   // information about ping mesh peers (see peers.go)
-	start  time.Time // time we started the pingmesh server itself
-
+	routes     []route // HTTP request to handler function mapping (plus info)
+	peers      []*peer // information about ping mesh peers (see peers.go)
+	numActive  int     // count of active peers
+	numDeleted int     // count of deleted peers
 }
 
 ////
@@ -87,6 +88,7 @@ func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 		ms.mu.Lock()
 		defer ms.mu.Unlock()
 		ms.peers = append(ms.peers, &p)
+		ms.numActive++
 	}()
 
 	return &p
@@ -98,6 +100,9 @@ func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 func (ms *meshSrv) Delete(peerUrl string) {
 	ms.mu.Lock() // protect this whole dang func...
 	defer ms.mu.Unlock()
+
+	ms.numActive--
+	ms.numDeleted++
 
 	var peers []*peer // replacement peer array
 	found := 0

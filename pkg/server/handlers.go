@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -18,6 +19,14 @@ type route struct {
 	uri     string
 	doc     string // see rootResponse()
 	handler func(w http.ResponseWriter, r *http.Request)
+}
+
+type metrics struct {
+	AppStart   time.Time
+	NumPeers   int
+	NumActive  int
+	NumDeleted int
+	MemStats   *MemStatSummary
 }
 
 func (s *meshSrv) SetupRoutes() {
@@ -84,10 +93,17 @@ func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
-		memStats := GetMemStatSummary()
+		m := metrics{
+			AppStart:   s.start,
+			MemStats:   GetMemStatSummary(),
+			NumPeers:   s.numActive + s.numDeleted,
+			NumActive:  s.numActive,
+			NumDeleted: s.numDeleted,
+		}
+
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(memStats); err != nil {
+		if err := enc.Encode(m); err != nil {
 			http.Error(w, "Error converting memStats to json",
 				http.StatusInternalServerError)
 		}

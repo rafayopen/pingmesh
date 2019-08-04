@@ -43,6 +43,10 @@ func (p *peer) Info() string {
 	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.Limit, p.Start)
 }
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 ////
 //  Ping sends HTTP requests to the configured Url and captures detailed timing
 //  information. It repeats the ping request after a delay (in time.Seconds).
