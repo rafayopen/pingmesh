@@ -1,6 +1,7 @@
 #!/bin/sh
 PM="cmd/pingmesh/pingmesh"
-CW=${CW:-""} # use -c to test with cloudwatch
+CW=${CW:-""}					# use -c to publish multi-location data to cloudwatch
+DEL=${DEL:-5}					# delay between pings
 
 usage="Usage: $0 [number of instances]"
 
@@ -9,13 +10,13 @@ if [ "$1" = "loc" ] ; then
     $PM -s 8081 -v -r &				# start a "remote" location pinging itself
     export REP_LOCATION=Charlevoix,MI
     # start a local instance, pinging the remote instance
-    cmd/pingmesh/pingmesh -s 8080 -v -n 5 -r "http://127.0.0.1:8081/v1/ping#Petosky,MI" &
+    cmd/pingmesh/pingmesh -s 8080 -v -n ${DEL} -r "http://127.0.0.1:8081/v1/ping#Petosky,MI" &
     wait
     exit 0
 fi
 
 echo try one
-$PM -v -s 8080 -n 5 -d 1 -r # http://localhost:8080/v1/ping#Charlevoix,MI
+$PM -v -s 8080 -n ${DEL} -d 1 -r # http://localhost:8080/v1/ping#Charlevoix,MI
 code=$?
 if [ $code -ne 0 ] ; then
     echo $PM exited with code $code
@@ -36,7 +37,7 @@ fi
 urls=""
 for i in $(seq $min $max) ; do
     urls="$urls http://127.0.0.1:$i/v1/ping"
-    $PM $CW -s $i -d 10 $urls &
+    $PM $CW -s $i -d ${DEL} $urls &
 done
 
 wait
