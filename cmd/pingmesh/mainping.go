@@ -8,7 +8,7 @@
 package main
 
 import (
-	"github.com/rafayopen/pingmesh/pkg/client"
+	//	"github.com/rafayopen/pingmesh/pkg/client"
 	"github.com/rafayopen/pingmesh/pkg/server"
 
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
@@ -112,7 +112,7 @@ func main() {
 		time.Sleep(1 * time.Second) // let it come up before starting pings
 		if reciprocal {
 			url := "http://localhost:" + strconv.Itoa(servePort) + "/v1/ping"
-			client.AddPeer(url, pm.MyLocation(), numTests, pingDelay)
+			server.AddPeer(url, pm.MyLocation(), numTests, pingDelay)
 		}
 	}
 
@@ -153,7 +153,7 @@ func main() {
 		if len(parts) > 1 {
 			location = parts[1]
 		}
-		client.AddPeer(url, location, numTests, pingDelay)
+		server.AddPeer(url, location, numTests, pingDelay)
 	}
 
 	if verbose > 1 {

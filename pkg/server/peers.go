@@ -28,13 +28,22 @@ type peer struct {
 	FirstPing time.Time // first recent ping response
 	LastPing  time.Time // most recent ping response
 
-	Summary pt.PingTimes // aggregates ping time results
+	ptSummary pt.PingTimes // aggregates ping time results
 
 	ms *meshSrv   // point back to the server for receivers to access state
 	mu sync.Mutex // make peer reentrant
 	// ping response fields go here ... TODO
 
 	// auto-updated fields
+}
+
+////
+//  AddPeer adds a ping peer for the given url, in location loc.  It
+//  will ping numTests times with a pingDelay between each test.
+func AddPeer(url, loc string, numTests, pingDelay int) {
+	// Create a new peer -- and increment the server's wait group
+	peer := PingmeshServer().NewPeer(url, loc, numTests, pingDelay)
+	go peer.Ping()
 }
 
 ////
@@ -79,21 +88,21 @@ func (p *peer) Ping() {
 		}
 
 		fc := float64(p.Pings)
-		elapsed := Hhmmss(time.Now().Unix() - p.Summary.Start.Unix())
+		elapsed := Hhmmss(time.Now().Unix() - p.ptSummary.Start.Unix())
 
 		fmt.Printf("\nRecorded %d samples in %s, average values:\n"+"%s"+
 			"%d %-6s\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t\t%d\t%s\t%s\n\n",
 			p.Pings, elapsed, pt.PingTimesHeader(),
 			p.Pings, elapsed,
-			pt.Msec(p.Summary.DnsLk)/fc,
-			pt.Msec(p.Summary.TcpHs)/fc,
-			pt.Msec(p.Summary.TlsHs)/fc,
-			pt.Msec(p.Summary.Reply)/fc,
-			pt.Msec(p.Summary.Close)/fc,
-			pt.Msec(p.Summary.RespTime())/fc,
-			p.Summary.Size/int64(p.Pings),
+			pt.Msec(p.ptSummary.DnsLk)/fc,
+			pt.Msec(p.ptSummary.TcpHs)/fc,
+			pt.Msec(p.ptSummary.TlsHs)/fc,
+			pt.Msec(p.ptSummary.Reply)/fc,
+			pt.Msec(p.ptSummary.Close)/fc,
+			pt.Msec(p.ptSummary.RespTime())/fc,
+			p.ptSummary.Size/int64(p.Pings),
 			"",
-			*p.Summary.DestUrl)
+			*p.ptSummary.DestUrl)
 	}()
 
 	// TODO -- replace pt.FetchURL with a version that obeys the REST API design
@@ -148,15 +157,15 @@ func (p *peer) Ping() {
 					////
 					// first ping -- initialize ptResult
 					p.FirstPing = now
-					p.Summary = *ptResult
+					p.ptSummary = *ptResult
 				} else {
-					p.Summary.DnsLk += ptResult.DnsLk
-					p.Summary.TcpHs += ptResult.TcpHs
-					p.Summary.TlsHs += ptResult.TlsHs
-					p.Summary.Reply += ptResult.Reply
-					p.Summary.Close += ptResult.Close
-					p.Summary.Total += ptResult.Total
-					p.Summary.Size += ptResult.Size
+					p.ptSummary.DnsLk += ptResult.DnsLk
+					p.ptSummary.TcpHs += ptResult.TcpHs
+					p.ptSummary.TlsHs += ptResult.TlsHs
+					p.ptSummary.Reply += ptResult.Reply
+					p.ptSummary.Close += ptResult.Close
+					p.ptSummary.Total += ptResult.Total
+					p.ptSummary.Size += ptResult.Size
 				}
 			}()
 

@@ -20,14 +20,15 @@ type meshSrv struct {
 	wg      *sync.WaitGroup // ping and server threads share this wg
 	mu      sync.Mutex      // make meshSrv reentrant (protect peers)
 	done    chan int        // used to signal when threads should exit
-	myLoc   string          // user-supplied location info for CW reporting
 	cwFlag  bool            // user flag controls writing to CloudWatch
 	verbose int             // controls logging to stdout
 
-	routes     []route // HTTP request to handler function mapping (plus info)
-	peers      []*peer // information about ping mesh peers (see peers.go)
-	numActive  int     // count of active peers
-	numDeleted int     // count of deleted peers
+	routes []route // HTTP request to handler function mapping (plus info)
+
+	MyLoc      string  // user-supplied location info for CW reporting
+	Peers      []*peer // information about ping mesh peers (see peers.go)
+	NumActive  int     // count of active peers
+	NumDeleted int     // count of deleted peers
 }
 
 ////
@@ -56,7 +57,7 @@ func (ms *meshSrv) SetupState(myLoc string, cwFlag bool, verbose int) {
 	//	defer ms.mu.Unlock()
 	// really don't need to lock here
 
-	ms.myLoc = myLoc
+	ms.MyLoc = myLoc
 	ms.cwFlag = cwFlag
 	ms.verbose = verbose
 }
@@ -70,7 +71,7 @@ func (ms *meshSrv) SetupState(myLoc string, cwFlag bool, verbose int) {
 //  (this needs to happen before invoking the goroutine)
 func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 	////
-	//  ONLY create a NewPeer if you are planning to call Ping right after!
+	//  ONLY create a NewPeer if you are planning to "go peer.Ping" right after!
 	ms.WaitGroup().Add(1)
 	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
 	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
@@ -87,8 +88,8 @@ func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 	func() {
 		ms.mu.Lock()
 		defer ms.mu.Unlock()
-		ms.peers = append(ms.peers, &p)
-		ms.numActive++
+		ms.Peers = append(ms.Peers, &p)
+		ms.NumActive++
 	}()
 
 	return &p
@@ -101,14 +102,14 @@ func (ms *meshSrv) Delete(peerUrl string) {
 	ms.mu.Lock() // protect this whole dang func...
 	defer ms.mu.Unlock()
 
-	ms.numActive--
-	ms.numDeleted++
+	ms.NumActive--
+	ms.NumDeleted++
 
 	var peers []*peer // replacement peer array
 	found := 0
 
 	// TODO: (make reentrant)
-	for _, p := range ms.peers {
+	for _, p := range ms.Peers {
 		if p.Url != peerUrl {
 			peers = append(peers, p)
 		} else {
@@ -126,7 +127,7 @@ func (ms *meshSrv) Delete(peerUrl string) {
 	default:
 		log.Println("Note: deleted", found, "pingers for", peerUrl)
 	}
-	ms.peers = peers
+	ms.Peers = peers
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,7 +135,7 @@ func (ms *meshSrv) Delete(peerUrl string) {
 ////////////////////////////////////////////////////////////////////////////////
 
 func (s *meshSrv) MyLocation() string {
-	return s.myLoc
+	return s.MyLoc
 }
 
 func (s *meshSrv) CwFlag() bool {

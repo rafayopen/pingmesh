@@ -77,7 +77,7 @@ func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 		response += "<h1> pingmesh </h1>"
 		response += "<p>Accessible URLs are:\n"
 		response += routelist
-		response += "<p>Served from " + s.myLoc + "\n"
+		response += "<p>Served from " + s.MyLoc + "\n"
 		response += htmlTrailer
 
 		w.Write([]byte(response))
@@ -96,9 +96,9 @@ func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 		m := metrics{
 			AppStart:   s.start,
 			MemStats:   GetMemStatSummary(),
-			NumPeers:   s.numActive + s.numDeleted,
-			NumActive:  s.numActive,
-			NumDeleted: s.numDeleted,
+			NumPeers:   s.NumActive + s.NumDeleted,
+			NumActive:  s.NumActive,
+			NumDeleted: s.NumDeleted,
 		}
 
 		enc := json.NewEncoder(w)
@@ -147,7 +147,7 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 		func() {
 			s.mu.Lock()
 			defer s.mu.Unlock()
-			if err := enc.Encode(s.peers); err != nil {
+			if err := enc.Encode(s); err != nil {
 				http.Error(w, "Error converting peer to json",
 					http.StatusInternalServerError)
 			}
@@ -179,7 +179,7 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 		// write response
 		response := htmlHeader
 		response += "<h1> pingResponse </h1>"
-		response += "<p>Served from " + s.myLoc + "\n"
+		response += "<p>Served from " + s.MyLoc + "\n"
 		response += htmlTrailer
 
 		w.Write([]byte(response))
@@ -199,7 +199,7 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := htmlHeader
 	response += "<h1> quitResponse </h1>"
-	response += "<p>Server in " + s.myLoc + " shutting down with these peers:\n<pre>\n"
+	response += "<p>Server in " + s.MyLoc + " shutting down with these peers:\n<pre>\n"
 	w.Write([]byte(response))
 
 	enc := json.NewEncoder(w)
@@ -207,7 +207,7 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if err := enc.Encode(s.peers); err != nil {
+		if err := enc.Encode(s.Peers); err != nil {
 			http.Error(w, "Error converting peer to json",
 				http.StatusInternalServerError)
 		}
