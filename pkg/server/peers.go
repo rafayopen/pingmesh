@@ -98,23 +98,11 @@ func (p *peer) Ping() {
 
 	// TODO -- replace pt.FetchURL with a version that obeys the REST API design
 
-	////
-	// jitterDelayPct returns a sleep time in msec based upon p.Delay with a
-	// jitter of +/- pct (should be between 1 and 10)
-	jitterDelayPct := func(pct int) time.Duration {
-		if pct < 1 {
-			pct = 1
-		}
-		msec := float64(p.Delay * 1000)
-		jitter := (msec * float64(pct) / 100.0) * (rand.Float64() - 0.5)
-		return time.Duration(msec+jitter) * time.Millisecond
-	}
-
 	for {
 		////
 		// Sleep first, allows risk-free continue from error cases below
 		select {
-		case <-time.After(jitterDelayPct(10)):
+		case <-time.After(JitterPct(p.Delay, 10)):
 			// we waited for the delay and got nothing ... loop around
 
 		case newdelay, more := <-p.ms.DoneChan():
@@ -234,6 +222,23 @@ func (p *peer) Ping() {
 }
 
 ////
+//  JitterPct returns a millisecond time.Duration jittered by +/- pct, which
+//  should be between 1 and 100.  The returned duration will never be negative.
+func JitterPct(secs, pct int) time.Duration {
+	if pct < 1 {
+		pct = 1
+	} else if pct > 200 {
+		// prevents retval from going negative
+		pct = 200
+	}
+
+	msec := float64(secs * 1000)
+	jitter := (msec * float64(pct) / 100.0) * (rand.Float64() - 0.5)
+
+	return time.Duration(msec+jitter) * time.Millisecond
+
+}
+
 //  Hhmmss returns a representation of the number of seconds (secs) like
 //  01h15m22s (leaving off 00h and 00h00m if they are zero).
 func Hhmmss(secs int64) string {
