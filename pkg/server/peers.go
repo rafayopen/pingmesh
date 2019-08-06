@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	//	"net"
 	"sync"
 	"time"
 )
@@ -21,6 +22,7 @@ type peer struct {
 	Limit    int    // number of pings before exiting
 	Delay    int    // delay between pings
 	Location string // location of this peer
+	PeerIP   string // peer's IP address
 
 	Pings     int       // number of successful responses
 	Fails     int       // number of ping failures seen
@@ -28,7 +30,7 @@ type peer struct {
 	FirstPing time.Time // first recent ping response
 	LastPing  time.Time // most recent ping response
 
-	ptSummary pt.PingTimes // aggregates ping time results
+	PingTotals pt.PingTimes // aggregates ping time results
 
 	ms *meshSrv   // point back to the server for receivers to access state
 	mu sync.Mutex // make peer reentrant
@@ -91,21 +93,21 @@ func (p *peer) Ping() {
 		}
 
 		fc := float64(p.Pings)
-		elapsed := Hhmmss(time.Now().Unix() - p.ptSummary.Start.Unix())
+		elapsed := Hhmmss(time.Now().Unix() - p.PingTotals.Start.Unix())
 
 		fmt.Printf("\nRecorded %d samples in %s, average values:\n"+"%s"+
 			"%d %-6s\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t\t%d\t%s\t%s\n\n",
 			p.Pings, elapsed, pt.PingTimesHeader(),
 			p.Pings, elapsed,
-			pt.Msec(p.ptSummary.DnsLk)/fc,
-			pt.Msec(p.ptSummary.TcpHs)/fc,
-			pt.Msec(p.ptSummary.TlsHs)/fc,
-			pt.Msec(p.ptSummary.Reply)/fc,
-			pt.Msec(p.ptSummary.Close)/fc,
-			pt.Msec(p.ptSummary.RespTime())/fc,
-			p.ptSummary.Size/int64(p.Pings),
+			pt.Msec(p.PingTotals.DnsLk)/fc,
+			pt.Msec(p.PingTotals.TcpHs)/fc,
+			pt.Msec(p.PingTotals.TlsHs)/fc,
+			pt.Msec(p.PingTotals.Reply)/fc,
+			pt.Msec(p.PingTotals.Close)/fc,
+			pt.Msec(p.PingTotals.RespTime())/fc,
+			p.PingTotals.Size/int64(p.Pings),
 			"",
-			*p.ptSummary.DestUrl)
+			*p.PingTotals.DestUrl)
 	}()
 
 	// TODO -- replace pt.FetchURL with a version that obeys the REST API design
@@ -130,6 +132,10 @@ func (p *peer) Ping() {
 		////
 		// Try to fetch the URL
 		ptResult := pt.FetchURL(p.Url, p.Location)
+		if p.PeerIP != ptResult.Remote {
+			p.PeerIP = ptResult.Remote
+		}
+
 		switch {
 
 		// result nil, something totally failed
@@ -160,15 +166,15 @@ func (p *peer) Ping() {
 					////
 					// first ping -- initialize ptResult
 					p.FirstPing = now
-					p.ptSummary = *ptResult
+					p.PingTotals = *ptResult
 				} else {
-					p.ptSummary.DnsLk += ptResult.DnsLk
-					p.ptSummary.TcpHs += ptResult.TcpHs
-					p.ptSummary.TlsHs += ptResult.TlsHs
-					p.ptSummary.Reply += ptResult.Reply
-					p.ptSummary.Close += ptResult.Close
-					p.ptSummary.Total += ptResult.Total
-					p.ptSummary.Size += ptResult.Size
+					p.PingTotals.DnsLk += ptResult.DnsLk
+					p.PingTotals.TcpHs += ptResult.TcpHs
+					p.PingTotals.TlsHs += ptResult.TlsHs
+					p.PingTotals.Reply += ptResult.Reply
+					p.PingTotals.Close += ptResult.Close
+					p.PingTotals.Total += ptResult.Total
+					p.PingTotals.Size += ptResult.Size
 				}
 			}()
 
