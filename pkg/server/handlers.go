@@ -48,10 +48,13 @@ func (s *meshSrv) SetupRoutes() {
 ////////////////////////////////////////////////////////////////////////
 
 var (
-	htmlHeader  string = "<html><head><title>pingmesh</title></head><body>\n"
 	htmlTrailer string = "\n</body></html>\n"
 	routelist   string
 )
+
+func htmlHeader(title string) string {
+	return "<html><head><title>" + title + "</title></head><body>\n"
+}
 
 func bullet(url, text string) string {
 	return "<li><a href=\"" + url + "\">" + text + "</a></li>\n"
@@ -73,7 +76,7 @@ func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 			routelist += "</ul>\n"
 		}
 
-		response := htmlHeader
+		response := htmlHeader(s.MyLoc)
 		response += "<h1> pingmesh </h1>"
 		response += "<p>Accessible URLs are:\n"
 		response += routelist
@@ -177,7 +180,7 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "GET":
 		// write response
-		response := htmlHeader
+		response := htmlHeader(s.MyLoc)
 		response += "<h1> pingResponse </h1>"
 		response += "<p>Served from " + s.MyLoc + "\n"
 		response += htmlTrailer
@@ -197,7 +200,7 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("QuitHandler called, shutting down server")
 
-	response := htmlHeader
+	response := htmlHeader(s.MyLoc)
 	response += "<h1> quitResponse </h1>"
 	response += "<p>Server in " + s.MyLoc + " shutting down with these peers:\n<pre>\n"
 	w.Write([]byte(response))
