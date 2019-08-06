@@ -7,22 +7,24 @@ usage="Usage: $0 [number of instances]"
 
 if [ "$1" = "loc" ] ; then
     export REP_LOCATION=Petosky,MI
-    $PM -s 8081 -v -r &				# start a "remote" location pinging itself
+    $PM -s 8081 -v http://localhost:8081/v1/ping &			# start one server pinging itself
     export REP_LOCATION=Charlevoix,MI
     # start a local instance, pinging the remote instance
-    cmd/pingmesh/pingmesh -s 8080 -v -n ${DEL} -r "http://127.0.0.1:8081/v1/ping#Petosky,MI" &
+    $PM -s 8080 -v -n ${DEL} "http://localhost:8081/v1/ping" "http://127.0.0.1:8081/v1/ping" &
     wait
     exit 0
 fi
 
-echo try one
-$PM -v -s 8080 -n ${DEL} -d 1 -r # http://localhost:8080/v1/ping#Charlevoix,MI
+echo try one ... run for one minute on 8080
+$PM -v -H localhost -s 8080 -d 1 -n 60 "http://localhost:8080/v1/ping" 
 code=$?
 if [ $code -ne 0 ] ; then
     echo $PM exited with code $code
     echo $usage
     exit $code
 fi
+
+[ $# -eq 0 ] && exit 0
 
 echo
 if [ "$1" -gt 0 ] ; then
