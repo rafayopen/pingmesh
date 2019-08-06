@@ -40,9 +40,9 @@ type peer struct {
 }
 
 ////
-//  AddPeer adds a ping peer for the given url, in location loc.  It
+//  AddPingTarget adds a ping target at the given url, in location loc.  It
 //  will ping numTests times with a pingDelay between each test.
-func AddPeer(url, loc string, numTests, pingDelay int) {
+func AddPingTarget(url, loc string, numTests, pingDelay int) {
 	// Create a new peer -- and increment the server's wait group
 	peer := PingmeshServer().NewPeer(url, loc, numTests, pingDelay)
 	go peer.Ping()

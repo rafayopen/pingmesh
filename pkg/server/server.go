@@ -29,6 +29,7 @@ type meshSrv struct {
 	SrvIPs     []net.IP // public IPs from DNS if hostname is set
 
 	Peers      []*peer // information about ping mesh peers (see peers.go)
+	Requests   int     // how many API requests (or pings) I have served
 	NumActive  int     // count of active peers
 	NumDeleted int     // count of deleted peers
 

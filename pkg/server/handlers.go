@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"sort"
@@ -39,6 +40,7 @@ func (s *meshSrv) SetupRoutes() {
 		{"/v1/metrics", "get memory statistics", s.MetricsHandler},
 		{"/v1/peers", "get or update list of peers", s.PeersHandler},
 		{"/v1/ping", "get a ping response", s.PingHandler},
+		{"/v1/addpeer", "add a ping peer (takes ip, port, hostname)", s.AddPingHandler},
 		{"/v1/quit", "shut down this pinger", s.QuitHandler},
 	}
 	for _, route := range s.routes {
@@ -64,6 +66,7 @@ func bullet(url, text string) string {
 }
 
 func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
+	s.Requests++
 	//log.Println("RootHandler")
 
 	switch r.Method {
@@ -95,6 +98,7 @@ func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
+	s.Requests++
 	//log.Println("MetricsHandler")
 
 	switch r.Method {
@@ -120,7 +124,77 @@ func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+////
+//  AddPingHandler takes URI parameters as follows and attempts to add a new
+//  peer pinging the target endpoint.
+//  Parameters   (meaning of the parameter)        example value
+//  - ip=        (the IP address connect to)       1.2.3.4
+//  - port=      (the port number on that ip)      443
+//  - hostname=  (the host header value to use)    pingmesh.run.rafay-edge.net
+//
+//  You can leave off ip to use whatever DNS lookup comes up with.  Port
+//  defaults to 80 if you leave it off.
+func (s *meshSrv) AddPingHandler(w http.ResponseWriter, r *http.Request) {
+	s.Requests++
+	qs := r.URL.Query()
+
+	aphError := func(reason string) {
+		log.Println("AddPingHandler error:", reason)
+
+		response := htmlHeader(s.SrvLoc)
+		response += "<h1> Error: AddPing </h1>\n<p>" + reason + htmlTrailer
+		w.Write([]byte(response))
+		return
+	}
+
+	if len(qs) == 0 {
+		aphError("You did not specify any parameters")
+		return
+	}
+
+	var ip, host, port string
+
+	ips := qs["ip"]
+	ports := qs["port"]
+	hosts := qs["host"]
+
+	if len(hosts) > 0 {
+		host = hosts[0]
+		if len(ips) == 0 {
+			ips, _ = net.LookupHost(host)
+			if len(ips) == 0 {
+				aphError("Found zero IPs for host " + host)
+				return
+			}
+		}
+		ip = ips[0]
+	} else {
+		if len(ips) == 0 {
+			aphError("No host or ips")
+			return
+		}
+		ip = ips[0]
+		host = ips[0]
+	}
+	// assert ip && host are set
+	if len(ports) > 0 {
+		port = ports[0]
+	} else {
+		port = "80"
+	}
+
+	sOrNo := ""
+	if port == "443" || port == "8443" {
+		sOrNo = "s"
+	}
+	url := "http" + sOrNo + "://" + host + ":" + port + "/v1/ping"
+	log.Println("Add peer host ip:port = "+host, ip+":"+port, "via", url)
+	AddPingTarget(url, "", 0, 10)
+	//  AddPeer(host, ip, port, 0, 10)
+}
+
 func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
+	s.Requests++
 	//log.Println("PeersHandler")
 
 	switch r.Method {
@@ -171,6 +245,7 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
+	s.Requests++
 	//log.Println("PingHandler")
 
 	//var h http.HandlerFunc
@@ -204,6 +279,7 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 ////
 //  envHandler dumps the shell environment, server and peer state
 func (s *meshSrv) envHandler(w http.ResponseWriter, r *http.Request) {
+	s.Requests++
 	//	log.Println("EnvHandler called")
 
 	response := htmlHeader(s.SrvLoc)
@@ -244,6 +320,7 @@ func (s *meshSrv) envHandler(w http.ResponseWriter, r *http.Request) {
 //  then closes the done channel, causing the pinger peers to exit.
 //  When they have exited main() will return.
 func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
+	s.Requests++
 	log.Println("QuitHandler called, shutting down server")
 
 	response := htmlHeader(s.SrvLoc)
@@ -265,5 +342,6 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("</pre>\n" + htmlTrailer))
 	////
 	//  Close the meshSrv done channel so the pinger peers will exit.
-	close(s.done)
+	s.CloseDoneChan()
+	s.wg.Done()
 }

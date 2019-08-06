@@ -137,7 +137,7 @@ func main() {
 		if len(parts) > 1 {
 			location = parts[1]
 		}
-		server.AddPeer(url, location, numTests, pingDelay)
+		server.AddPingTarget(url, location, numTests, pingDelay)
 	}
 
 	if verbose > 1 {
