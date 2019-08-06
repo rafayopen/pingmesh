@@ -61,7 +61,7 @@ func init() {
 //  information. It repeats the ping request after a delay (in time.Seconds).
 func (p *peer) Ping() {
 	// this task is recorded in the waitgroup, so clear waitgroup on return
-	defer p.ms.WaitGroup().Done()
+	defer p.ms.Done()
 
 	// This must come after Done and before Reporter (executes in reverse order)
 	defer p.ms.Delete(p.Url)
@@ -204,7 +204,7 @@ func (p *peer) Ping() {
 
 		if p.ms.CwFlag() {
 			metric := pt.Msec(ptResult.TcpHs)
-			myLocation := p.ms.MyLocation()
+			myLocation := p.ms.SrvLocation()
 			if p.ms.Verbose() > 1 {
 				log.Println("publishing TCP RTT", metric, "msec to CloudWatch ", ns)
 			}

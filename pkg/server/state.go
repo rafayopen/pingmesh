@@ -2,65 +2,8 @@ package server
 
 import (
 	"log"
-	"sync"
 	"time"
 )
-
-////////////////////////////////////////////////////////////////////////////////
-//  Server state data types
-////////////////////////////////////////////////////////////////////////////////
-
-////
-//  meshSrv is the core mesh server data structure.  Request handlers and state
-//  access and manipulation functions are receivers on meshSrv so they can use
-//  private (protected, unexported) data members.
-////
-type meshSrv struct {
-	start   time.Time       // time we started the pingmesh server itself
-	wg      *sync.WaitGroup // ping and server threads share this wg
-	mu      sync.Mutex      // make meshSrv reentrant (protect peers)
-	done    chan int        // used to signal when threads should exit
-	cwFlag  bool            // user flag controls writing to CloudWatch
-	verbose int             // controls logging to stdout
-
-	routes []route // HTTP request to handler function mapping (plus info)
-
-	MyLoc      string  // user-supplied location info for CW reporting
-	Peers      []*peer // information about ping mesh peers (see peers.go)
-	NumActive  int     // count of active peers
-	NumDeleted int     // count of deleted peers
-}
-
-////
-//  myServer is a singleton instance of the server for the app
-var myServer *meshSrv
-
-////
-//  init creates the myServer instances and sets up HTTP routes
-func init() {
-	myServer = new(meshSrv)
-	myServer.start = time.Now()
-	myServer.SetupRoutes()
-}
-
-////
-//  PingmeshServer returns the (already existing) singleton pointer
-func PingmeshServer() *meshSrv {
-	return myServer
-}
-
-////
-//  SetupState is called by main() to provide initial conditions for the
-//  pingmesh instance
-func (ms *meshSrv) SetupState(myLoc string, cwFlag bool, verbose int) {
-	//	ms.mu.Lock()
-	//	defer ms.mu.Unlock()
-	// really don't need to lock here
-
-	ms.MyLoc = myLoc
-	ms.cwFlag = cwFlag
-	ms.verbose = verbose
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 //  Peer manipulation receivers
@@ -72,7 +15,7 @@ func (ms *meshSrv) SetupState(myLoc string, cwFlag bool, verbose int) {
 func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 	////
 	//  ONLY create a NewPeer if you are planning to "go peer.Ping" right after!
-	ms.WaitGroup().Add(1)
+	ms.wg.Add(1)
 	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
 	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
 
@@ -134,16 +77,20 @@ func (ms *meshSrv) Delete(peerUrl string) {
 //  Server state accessors, self-explanatory
 ////////////////////////////////////////////////////////////////////////////////
 
-func (s *meshSrv) MyLocation() string {
-	return s.MyLoc
+func (s *meshSrv) SrvLocation() string {
+	return s.SrvLoc
 }
 
 func (s *meshSrv) CwFlag() bool {
 	return s.cwFlag
 }
 
-func (s *meshSrv) WaitGroup() *sync.WaitGroup {
-	return s.wg
+func (s *meshSrv) Wait() {
+	s.wg.Wait()
+}
+
+func (s *meshSrv) Done() {
+	s.wg.Done()
 }
 
 func (s *meshSrv) DoneChan() chan int {
@@ -154,18 +101,13 @@ func (s *meshSrv) Verbose() int {
 	return s.verbose
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//  Server state mutators
-////////////////////////////////////////////////////////////////////////////////
-
-func (s *meshSrv) SetWaitGroup(wg *sync.WaitGroup) {
-	s.wg = wg
-}
-
-func (s *meshSrv) SetDoneChan(done chan int) {
-	s.done = done
-}
-
-func (s *meshSrv) SetVerbose(verbose int) {
-	s.verbose = verbose
+////
+// Close the wg DoneChan and set it to nil
+func (s *meshSrv) CloseDoneChan() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.done != nil {
+		close(s.done)
+		s.done = nil
+	}
 }

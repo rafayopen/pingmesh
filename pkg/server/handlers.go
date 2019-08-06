@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"sort"
 	"time"
 )
 
@@ -33,6 +35,7 @@ func (s *meshSrv) SetupRoutes() {
 	s.routes = []route{
 		{"/", "", s.RootHandler},
 		{"/v1", "", s.RootHandler},
+		{"/v1/env", "", s.envHandler},
 		{"/v1/metrics", "get memory statistics", s.MetricsHandler},
 		{"/v1/peers", "get or update list of peers", s.PeersHandler},
 		{"/v1/ping", "get a ping response", s.PingHandler},
@@ -76,11 +79,11 @@ func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 			routelist += "</ul>\n"
 		}
 
-		response := htmlHeader(s.MyLoc)
+		response := htmlHeader(s.SrvLoc)
 		response += "<h1> pingmesh </h1>"
 		response += "<p>Accessible URLs are:\n"
 		response += routelist
-		response += "<p>Served from " + s.MyLoc + "\n"
+		response += "<p>Served from " + s.SrvLoc + "\n"
 		response += htmlTrailer
 
 		w.Write([]byte(response))
@@ -97,7 +100,7 @@ func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		m := metrics{
-			AppStart:   s.start,
+			AppStart:   s.Start,
 			MemStats:   GetMemStatSummary(),
 			NumPeers:   s.NumActive + s.NumDeleted,
 			NumActive:  s.NumActive,
@@ -145,6 +148,11 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		// write response
 
+		if len(s.SrvHost) > 0 && s.SrvIPs == nil {
+			log.Println("Try again, lookup IPs for", s.SrvHost)
+			s.SrvIPs = GetIPs(s.SrvHost)
+		}
+
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		func() {
@@ -180,9 +188,9 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "GET":
 		// write response
-		response := htmlHeader(s.MyLoc)
+		response := htmlHeader(s.SrvLoc)
 		response += "<h1> pingResponse </h1>"
-		response += "<p>Served from " + s.MyLoc + "\n"
+		response += "<p>Served from " + s.SrvLoc + "\n"
 		response += htmlTrailer
 
 		w.Write([]byte(response))
@@ -194,15 +202,53 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 ////
+//  envHandler dumps the shell environment, server and peer state
+func (s *meshSrv) envHandler(w http.ResponseWriter, r *http.Request) {
+	//	log.Println("EnvHandler called")
+
+	response := htmlHeader(s.SrvLoc)
+	response += "<h1> Runtime Envronment </h1>"
+	response += "<p>Server in " + s.SrvLoc + " with environment:\n<pre>\n"
+	env := os.Environ()
+	sort.Strings(env)
+	for _, pair := range env {
+		response += pair + "\n"
+	}
+	w.Write([]byte(response))
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+
+	response = "</pre>\n<h2> Server and Peer State </h2>\n<pre>"
+	w.Write([]byte(response))
+
+	func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if err := enc.Encode(s); err != nil {
+			http.Error(w, "Error converting peer to json",
+				http.StatusInternalServerError)
+		}
+	}()
+
+	response = "</pre>\n<h2> Memory Stats </h2>\n<pre>"
+	w.Write([]byte(response))
+	m := GetMemStatSummary()
+	enc.Encode(m)
+
+	w.Write([]byte("</pre>\n" + htmlTrailer))
+}
+
+////
 //  QuitHandler reports the currently active peers for this server and
 //  then closes the done channel, causing the pinger peers to exit.
 //  When they have exited main() will return.
 func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("QuitHandler called, shutting down server")
 
-	response := htmlHeader(s.MyLoc)
+	response := htmlHeader(s.SrvLoc)
 	response += "<h1> quitResponse </h1>"
-	response += "<p>Server in " + s.MyLoc + " shutting down with these peers:\n<pre>\n"
+	response += "<p>Server in " + s.SrvLoc + " shutting down with these peers:\n<pre>\n"
 	w.Write([]byte(response))
 
 	enc := json.NewEncoder(w)
