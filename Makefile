@@ -6,7 +6,7 @@ CWD := $(shell basename ${PWD})
 # Docker image name, based on current working directory
 IMAGE := ${CWD}
 # Version (tag used with docker push)
-VERSION := v3
+VERSION := `git tag | tail -1`
 
 # Linux build image name (does not conflict with go build)
 LINUX_EXE := ${IMAGE}.exe
@@ -14,6 +14,7 @@ LINUX_EXE := ${IMAGE}.exe
 IMAGE_LIST := ${IMAGE}-images.out
 
 info:
+	echo VERSION ${VERSION}
 	@-echo Use \"make standalone\" to build local binary cmd/${IMAGE}/${IMAGE}
 	@-echo Use \"make docker\" to build ${IMAGE}:${VERSION} from ${LINUX_EXE}
 # "make push" will push it to DockerHub, using credentials in your env
@@ -70,5 +71,5 @@ rafay-push:	${IMAGE_LIST}
 	$(CLI) image upload ${IMAGE}:${NOW}
 	$(DOCKER) images | egrep "${IMAGE} " > ${IMAGE_LIST} # update with latest tag
 
-test:	cmd/${IMAGE}/${IMAGE}
-	cmd/${IMAGE}/${IMAGE} -v -V -s 8080 -d 5 http://localhost:8080/v1/ping
+test:	cmd/${IMAGE}/${IMAGE} test_pingmesh.sh
+	./test_pingmesh.sh
