@@ -78,6 +78,9 @@ func (p *peer) Ping() {
 	if limit == 0 {
 		limit = math.MaxInt32
 	}
+	if maxfail > limit {
+		maxfail = limit
+	}
 
 	////
 	//  Reporter summarizes ping statistics to stdout at the end of the run
