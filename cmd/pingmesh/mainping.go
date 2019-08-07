@@ -80,6 +80,18 @@ func main() {
 		verbose = 0
 	}
 
+	if cwFlag {
+		cwRegion := os.Getenv("AWS_REGION")
+		if len(cwRegion) > 0 && len(os.Getenv("AWS_ACCESS_KEY_ID")) > 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) > 0 {
+			if verbose > 1 {
+				log.Println("publishing to CloudWatch region", cwRegion)
+			}
+		} else {
+			log.Println("CloudWatch requires in environment: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY")
+			cwFlag = false
+		}
+	}
+
 	endpoints := flag.Args() // any remaining arguments are the endpoints to ping
 	if len(endpoints) == 0 {
 		if servePort == 0 {
@@ -121,7 +133,7 @@ func main() {
 		close(sigchan)
 	}()
 
-	if verbose > 0 {
+	if len(endpoints) > 0 && verbose > 0 {
 		if verbose > 1 {
 			log.Println("starting ping across", endpoints)
 		}
