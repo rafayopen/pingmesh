@@ -1,14 +1,19 @@
 package server
 
 import (
+	"github.com/rafayopen/pingmesh/pkg/client" // fetchurl
+
 	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
-	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
+	"github.com/rafayopen/perftest/pkg/pt" // pingtimes but not fetchurl
 
 	"fmt"
+	//"io"
+	//	"io/ioutil"
 	"log"
 	"math"
 	"math/rand"
-	//	"net"
+	//	"net/http"
+	//	"net/http/httptrace"
 	"sync"
 	"time"
 )
@@ -131,7 +136,7 @@ func (p *peer) Ping() {
 
 		////
 		// Try to fetch the URL
-		ptResult := pt.FetchURL(p.Url, p.Location)
+		ptResult := client.FetchURL(p.Url, client.ReadPingResp)
 		if p.PeerIP != ptResult.Remote {
 			p.PeerIP = ptResult.Remote
 		}
@@ -175,6 +180,10 @@ func (p *peer) Ping() {
 					p.PingTotals.Close += ptResult.Close
 					p.PingTotals.Total += ptResult.Total
 					p.PingTotals.Size += ptResult.Size
+				}
+				if p.Location != *ptResult.Location {
+					log.Println("Found new location, updating", p.Location, "to", *ptResult.Location)
+					p.Location = *ptResult.Location
 				}
 			}()
 
@@ -223,7 +232,7 @@ func (p *peer) Ping() {
 
 			////
 			// Publish my location (IP or REP_LOCATION) and their location (the URL for now)
-			cw.PublishRespTime(myLocation, p.Url, respCode, metric, mn, ns)
+			cw.PublishRespTime(myLocation, p.Location, respCode, metric, mn, ns)
 			// NOTE: using network RTT estimate (TcpHs) rather than full page response time
 		}
 

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"github.com/rafayopen/pingmesh/pkg/client" // fetchurl
+
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -86,7 +88,7 @@ func (s *meshSrv) RootHandler(w http.ResponseWriter, r *http.Request) {
 		response += "<h1> pingmesh </h1>"
 		response += "<p>Accessible URLs are:\n"
 		response += routelist
-		response += "<p>Served from " + s.SrvLoc + "\n"
+		response += client.ServedFromPrefix + s.SrvLoc + client.ServedFromSuffix
 		response += htmlTrailer
 
 		w.Write([]byte(response))
@@ -265,7 +267,7 @@ func (s *meshSrv) PingHandler(w http.ResponseWriter, r *http.Request) {
 		// write response
 		response := htmlHeader(s.SrvLoc)
 		response += "<h1> pingResponse </h1>"
-		response += "<p>Served from " + s.SrvLoc + "\n"
+		response += client.ServedFromPrefix + s.SrvLoc + client.ServedFromSuffix
 		response += htmlTrailer
 
 		w.Write([]byte(response))
@@ -284,7 +286,7 @@ func (s *meshSrv) envHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := htmlHeader(s.SrvLoc)
 	response += "<h1> Runtime Envronment </h1>"
-	response += "<p>Server in " + s.SrvLoc + " with environment:\n<pre>\n"
+	response += client.ServedFromPrefix + s.SrvLoc + client.ServedFromSuffix + "<h2>Shell Environment</h2>\n<pre>\n"
 	env := os.Environ()
 	sort.Strings(env)
 	for _, pair := range env {
@@ -295,7 +297,7 @@ func (s *meshSrv) envHandler(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 
-	response = "</pre>\n<h2> Server and Peer State </h2>\n<pre>"
+	response = "</pre>\n<h2> Server and Peer State </h2>\n<pre>\n"
 	w.Write([]byte(response))
 
 	func() {
@@ -307,7 +309,7 @@ func (s *meshSrv) envHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	response = "</pre>\n<h2> Memory Stats </h2>\n<pre>"
+	response = "</pre>\n<h2> Memory Stats </h2>\n<pre>\n"
 	w.Write([]byte(response))
 	m := GetMemStatSummary()
 	enc.Encode(m)
@@ -325,7 +327,7 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := htmlHeader(s.SrvLoc)
 	response += "<h1> quitResponse </h1>"
-	response += "<p>Server in " + s.SrvLoc + " shutting down with these peers:\n<pre>\n"
+	response += client.ServedFromPrefix + s.SrvLoc + client.ServedFromSuffix + "<p>shutting down with these peers:\n<pre>\n"
 	w.Write([]byte(response))
 
 	enc := json.NewEncoder(w)

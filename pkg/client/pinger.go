@@ -3,11 +3,10 @@ package client
 
 import (
 	"github.com/rafayopen/perftest/pkg/pt"
-	"github.com/rafayopen/pingmesh/pkg/server"
 
 	"context"
 	"crypto/tls"
-	"io"
+	//"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -18,7 +17,8 @@ import (
 	"time"
 )
 
-var _ = server.PingmeshServer()
+const ServedFromPrefix = "<p>Served from "
+const ServedFromSuffix = "\n"
 
 // Parse the uri argument and return URL object for it, or nil on failure.
 func ParseURL(uri string) *url.URL {
@@ -57,9 +57,10 @@ func HostNoPort(addr string) string {
 
 // FetchURL makes an HTTP request to the given URL, reads and discards the response
 // body, and returns a PingTimes object with detailed timing information from the fetch.
-// The caller should pass in a valid location string, for example "City,Country" where
-// the client is running.
-func FetchURL(rawurl string, myLocation string) *pt.PingTimes {
+// NOTE: the location handling is different from perftest!  The caller does
+// not pass in a location, instead location is parsed from the response body
+// and returned in pt.Location.
+func FetchURL(rawurl string, reader func(*http.Request, *http.Response) string) *pt.PingTimes {
 	// Leveraged from https://github.com/reorx/httpstat
 	url := ParseURL(rawurl)
 	if url == nil {
@@ -143,6 +144,7 @@ func FetchURL(rawurl string, myLocation string) *pt.PingTimes {
 	// tStart (DNS lookup start time) to appear to be in the past.  Is that OK?  I think no,
 	// so request start time is before the connection is attempted.
 	status := 520
+	var location string
 	var bytes int64
 	resp, err := client.Do(req)
 	if resp != nil {
@@ -152,9 +154,10 @@ func FetchURL(rawurl string, myLocation string) *pt.PingTimes {
 	if err != nil {
 		log.Printf("reading response: %v", err)
 	} else {
-		// drain the response body, read all the bytes to set close time correctly
-		bytes = readResponseBody(req, resp)
 		status = resp.StatusCode
+		if status == 200 {
+			location = ReadPingResp(req, resp)
+		}
 	}
 	tClose = time.Now() // after read body
 
@@ -176,25 +179,40 @@ func FetchURL(rawurl string, myLocation string) *pt.PingTimes {
 		Close:    tClose.Sub(tFirst), // content transfer: last byte time
 		Total:    tClose.Sub(tDnsLk), // request time not including DNS lookup
 		DestUrl:  &urlStr,            // URL that received the request
-		Location: &myLocation,        // Client location, City,Country
+		Location: &location,          // SERVER, **NOTE**: different from perftest/FetchURL!
 		Remote:   rmtAddr,            // Server IP from DNS resolution
 		RespCode: status,
 		Size:     bytes,
 	}
 }
 
-// Consumes the body of the response ... simply discarding it at this point (be as fast as possible).
-func readResponseBody(req *http.Request, resp *http.Response) int64 {
+// readPingResp consumes an HTML ping response body, expecting a location
+// string in the <title> and body.  Discards the remaining body.
+func ReadPingResp(req *http.Request, resp *http.Response) (location string) {
 	if req.Method == http.MethodHead {
-		return 0
+		log.Printf("no HTTP response body in a HEAD")
+		return
 	}
 
-	w := ioutil.Discard
-	bytes, err := io.Copy(w, resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("reading HTTP response body: %v", err)
+		log.Println("readPingResp:", err)
+		return
 	}
-	return bytes
+	sb := string(body)
+	locStart := strings.Index(sb, ServedFromPrefix)
+	if locStart > 0 {
+		locStart += len(ServedFromPrefix) // start of the text
+		locEnd := strings.Index(sb[locStart:], ServedFromSuffix)
+		if locEnd > 0 {
+			location = sb[locStart : locStart+locEnd]
+		} else {
+			log.Println("Found location prefix but no suffix in:\n" + sb)
+		}
+	} else {
+		log.Println("Did not find location prefix in:\n" + sb)
+	}
+	return
 }
 
 // LocationFromEnv returns the current location from environment variables:
