@@ -24,11 +24,11 @@ type peer struct {
 	Location string // location of this peer
 	PeerIP   string // peer's IP address
 
-	Pings     int       // number of successful responses
-	Fails     int       // number of ping failures seen
-	Start     time.Time // time we started pinging this peer
-	FirstPing time.Time // first recent ping response
-	LastPing  time.Time // most recent ping response
+	Pings      int       // number of successful responses
+	Fails      int       // number of ping failures seen
+	Start      time.Time // time we started pinging this peer
+	FirstPing  time.Time // first recent ping response
+	LatestPing time.Time // most recent ping response
 
 	PingTotals pt.PingTimes // aggregates ping time results
 
@@ -161,7 +161,7 @@ func (p *peer) Ping() {
 				defer p.mu.Unlock()
 				p.Pings++
 				now := time.Now()
-				p.LastPing = now
+				p.LatestPing = now
 				if p.Pings == 1 {
 					////
 					// first ping -- initialize ptResult
