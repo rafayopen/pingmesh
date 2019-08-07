@@ -73,3 +73,6 @@ rafay-push:	${IMAGE_LIST}
 
 test:	cmd/${IMAGE}/${IMAGE} test_pingmesh.sh
 	./test_pingmesh.sh
+
+.PHONY: tags					# https://github.com/willoch/tago/  builds etags file
+tags:;	tago `find . -type f | egrep '\.go$$'`
