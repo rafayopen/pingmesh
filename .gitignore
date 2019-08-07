@@ -1,8 +1,9 @@
 cmd/pingmesh/pingmesh
 cmd/pingmesh/pingmesh.exe
 *.bak
-*/bak
+bak/
 *.out
+TAGS
 
 # emacs backup files
 *~
