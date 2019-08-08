@@ -9,6 +9,7 @@ import (
 	//"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -60,7 +61,7 @@ func HostNoPort(addr string) string {
 // NOTE: the location handling is different from perftest!  The caller does
 // not pass in a location, instead location is parsed from the response body
 // and returned in pt.Location.
-func FetchURL(rawurl string, reader func(*http.Request, *http.Response) string) *pt.PingTimes {
+func FetchURL(rawurl, rmtIP string, reader func(*http.Request, *http.Response) string) *pt.PingTimes {
 	// Leveraged from https://github.com/reorx/httpstat
 	url := ParseURL(rawurl)
 	if url == nil {
@@ -69,6 +70,34 @@ func FetchURL(rawurl string, reader func(*http.Request, *http.Response) string) 
 	}
 
 	urlStr := url.Scheme + "://" + url.Host + url.Path
+	peerAddr := url.Host // may contain a port number
+
+	/*
+		if pi := portIndex(url.Host); pi > 0 {
+			urlPort = url.Host[pi+1:]
+			log.Println("found urlPort", urlPort, "trimming", url.Host)
+			url.Host = url.Host[:pi]
+		}
+	*/
+
+	if len(rmtIP) > 0 { // override the hostname with a specific IP
+		// in this case the hostname should not include a port, else we will
+		// have to parse it out per the code above
+		if pi := portIndex(url.Host); pi > 0 {
+			port := url.Host[pi+1:]
+			peerAddr = rmtIP + ":" + port
+			log.Println("override host", url.Host, "with IP[:port]", peerAddr)
+		}
+		/*
+			peerAddr = rmtIP
+			if ips := GetIPs(url.Host); len(ips) > 0 {
+				log.Println("found IPs for", url.Host, ":", ips, ips[0])
+				rmtIP = ips[0].String()
+			} else {
+				log.Println("lookup of", url.Host, "found no IPs, gonna fail")
+			}
+		*/
+	}
 
 	httpMethod := http.MethodGet
 
@@ -78,7 +107,7 @@ func FetchURL(rawurl string, reader func(*http.Request, *http.Response) string) 
 		return nil
 	}
 
-	rmtAddr := "undefined"
+	var rmtAddr string
 
 	var tStart, tDnsLk, tTcpHs, tConnd, tFirst, tTlsSt, tTlsHs, tClose time.Time
 
@@ -121,14 +150,24 @@ func FetchURL(rawurl string, reader func(*http.Request, *http.Response) string) 
 	}
 	req = req.WithContext(httptrace.WithClientTrace(context.Background(), trace))
 
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
+
 	tr := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
+		//		Proxy:                 http.ProxyFromEnvironment,
 		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true, // Warning: skips CA checks, but ping doesn't care
+		},
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			//			addr = ip + ":" + urlPort // + addr[strings.LastIndex(addr, ":"):]
+			return dialer.DialContext(ctx, network, peerAddr)
 		},
 	}
 
@@ -170,7 +209,7 @@ func FetchURL(rawurl string, reader func(*http.Request, *http.Response) string) 
 		tConnd = tFirst
 	}
 
-	return &pt.PingTimes{
+	p := pt.PingTimes{
 		Start:    tStart,             // request start
 		DnsLk:    tDnsLk.Sub(tStart), // DNS lookup
 		TcpHs:    tTcpHs.Sub(tDnsLk), // TCP connection handshake
@@ -184,6 +223,8 @@ func FetchURL(rawurl string, reader func(*http.Request, *http.Response) string) 
 		RespCode: status,
 		Size:     bytes,
 	}
+
+	return &p
 }
 
 // readPingResp consumes an HTML ping response body, expecting a location

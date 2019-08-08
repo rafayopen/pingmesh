@@ -252,7 +252,7 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 
 		if len(s.SrvHost) > 0 && s.SrvIPs == nil {
 			log.Println("Try again, lookup IPs for", s.SrvHost)
-			s.SrvIPs = GetIPs(s.SrvHost)
+			s.SrvIPs = client.GetIPs(s.SrvHost)
 		}
 
 		enc := json.NewEncoder(w)

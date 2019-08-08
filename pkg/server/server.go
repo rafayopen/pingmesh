@@ -2,6 +2,8 @@
 package server
 
 import (
+	"github.com/rafayopen/pingmesh/pkg/client" // fetchurl
+
 	"fmt"
 	"log"
 	"net"
@@ -61,7 +63,7 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, ve
 			Start:      time.Now(),
 			SrvLoc:     myLoc,
 			SrvHost:    hostname,
-			SrvIPs:     GetIPs(hostname),
+			SrvIPs:     client.GetIPs(hostname),
 			SrvPort:    report,
 			listenPort: port,
 			cwFlag:     cwFlag,
@@ -81,17 +83,6 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, ve
 		srvServer = ms
 	})
 	return srvServer
-}
-
-func GetIPs(hostname string) (ips []net.IP) {
-	var err error
-	if len(hostname) > 0 {
-		ips, err = net.LookupIP(hostname)
-		if err != nil {
-			log.Println("Warning: Could not LookupIP for", hostname, err)
-		}
-	}
-	return
 }
 
 ////

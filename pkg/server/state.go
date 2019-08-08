@@ -21,7 +21,7 @@ func (ms *meshSrv) NewPeer(url, ip, location string, limit, delay int) *peer {
 
 	p := peer{
 		Url:      url,
-		PeerIP:   ip,
+		PeerIP:   ip, // may be empty
 		Limit:    limit,
 		Delay:    delay,
 		Location: location,
@@ -55,39 +55,39 @@ func (ms *meshSrv) FindPeer(url, ip string) *peer {
 ////
 //  Delete removes all peers from the peer list matching url and ip.  The
 //  caller (e.g., from Ping()) MUST follow Delete with WaitGroup.Done.
-func (ms *meshSrv) Delete(peerUrl, ip string) {
+func (ms *meshSrv) Delete(p *peer) {
 	ms.mu.Lock() // protect this whole dang func...
 	defer ms.mu.Unlock()
 
 	ms.NumActive--
 	ms.NumDeleted++
 
-	var peers []*peer // replacement peer array
+	var newPeers []*peer // replacement peer array
 	found := 0
 
-	for _, p := range ms.Peers {
-		if p.Url == peerUrl && p.PeerIP == ip {
+	for _, plist := range ms.Peers {
+		if plist.Url == p.Url && plist.PeerIP == p.PeerIP {
 			found++
 		} else {
-			peers = append(peers, p)
+			newPeers = append(newPeers, plist)
 		}
 	}
 	switch found {
 	case 0:
 		if ms.Verbose() > 0 {
-			log.Println("Warning: failed to delete pinger for", peerUrl, "on", ip)
+			log.Println("Warning: failed to delete pinger for", p.Url, "on", p.PeerIP)
 		}
 		return
 	case 1:
 		if ms.Verbose() > 0 {
-			log.Println("Deleted pinger for", peerUrl)
+			log.Println("Deleted pinger for", p.Url)
 		}
 	default:
 		if ms.Verbose() > 0 {
-			log.Println("Note: deleted", found, "pingers for", peerUrl, "on", ip)
+			log.Println("Note: deleted", found, "pingers for", p.Url, "on", p.PeerIP)
 		}
 	}
-	ms.Peers = peers
+	ms.Peers = newPeers
 }
 
 ////////////////////////////////////////////////////////////////////////////////

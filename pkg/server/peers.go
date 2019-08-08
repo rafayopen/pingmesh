@@ -28,7 +28,7 @@ type peer struct {
 	Limit    int    // number of pings before exiting
 	Delay    int    // delay between pings
 	Location string // location of this peer
-	PeerIP   string // peer's IP address
+	PeerIP   string // peer's IP address (used for IP override)
 
 	Pings      int       // number of successful responses
 	Fails      int       // number of ping failures seen
@@ -93,7 +93,7 @@ func (p *peer) Ping() {
 	// this task is recorded in the waitgroup, so clear waitgroup on return
 	defer p.ms.Done()
 	// This must come after Done and before Reporter (executes in reverse order)
-	defer p.ms.Delete(p.Url, p.PeerIP)
+	defer p.ms.Delete(p)
 
 	if p.ms.Verbose() > 1 {
 		log.Println("ping", p.Url)
@@ -158,18 +158,20 @@ func (p *peer) Ping() {
 
 		////
 		// Try to fetch the URL
-		ptResult := client.FetchURL(p.Url, client.ReadPingResp)
-		if p.PeerIP != ptResult.Remote {
-			// TODO: propagate IP into FetchURL ... and faking-SNI
-			if p.ms.Verbose() > 1 {
-				if p.PeerIP == "" {
-					log.Println("Initialize IP to", ptResult.Remote)
-				} else {
-					log.Println("IP changed:", p.PeerIP, "is now", ptResult.Remote)
+		ptResult := client.FetchURL(p.Url, p.PeerIP, client.ReadPingResp)
+		/*
+			if len(ptResult.Remote) > 0 && p.PeerIP != ptResult.Remote {
+				// TODO: propagate IP into FetchURL ... and faking-SNI
+				if p.ms.Verbose() > 1 {
+					if p.PeerIP == "" {
+						log.Println("Initialize IP to", ptResult.Remote)
+						p.PeerIP = ptResult.Remote
+					} else {
+						log.Println("IP changed:", p.PeerIP, "is now", ptResult.Remote, "???")
+					}
 				}
 			}
-			p.PeerIP = ptResult.Remote
-		}
+		*/
 
 		switch {
 		// result nil, something totally failed

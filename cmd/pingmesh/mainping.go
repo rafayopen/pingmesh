@@ -50,6 +50,7 @@ func main() {
 		serveReport int
 		myLocation  string
 		myHost      string
+		peerIP      string
 		cwFlag      bool
 		vf, qf      bool
 		verbose     int = 1
@@ -62,8 +63,9 @@ func main() {
 	flag.BoolVar(&cwFlag, "c", false, "publish metrics to CloudWatch")
 	flag.BoolVar(&vf, "v", false, "be more verbose")
 	flag.BoolVar(&qf, "q", false, "be less verbose")
-	flag.StringVar(&myLocation, "I", "", "HTTP client's location to report")
+	flag.StringVar(&myLocation, "L", "", "HTTP client's location to report")
 	flag.StringVar(&myHost, "H", "", "My hostname (should resolve to accessible IPs)")
+	flag.StringVar(&peerIP, "I", "", "remote peer IP address override")
 
 	flag.Usage = printUsage
 	flag.Parse()
@@ -148,7 +150,7 @@ func main() {
 		if len(parts) > 1 {
 			location = parts[1]
 		}
-		server.AddPingTarget(url, "", location, numTests, pingDelay)
+		server.AddPingTarget(url, peerIP, location, numTests, pingDelay)
 	}
 
 	if verbose > 1 {
