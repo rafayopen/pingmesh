@@ -231,9 +231,10 @@ func (p *peer) Ping() {
 			}
 
 			////
-			// Publish my location (IP or REP_LOCATION) and their location (the URL for now)
+			// Publish my location (IP or REP_LOCATION) and their location
 			cw.PublishRespTime(myLocation, p.Location, respCode, metric, mn, ns)
 			// NOTE: using network RTT estimate (TcpHs) rather than full page response time
+			// TODO: This makes the legends wrong in Cloudwatch.  Fix that.
 		}
 
 		if p.Pings >= limit {

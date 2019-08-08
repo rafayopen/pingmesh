@@ -138,19 +138,29 @@ func (s *meshSrv) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 //  defaults to 80 if you leave it off.
 func (s *meshSrv) AddPingHandler(w http.ResponseWriter, r *http.Request) {
 	s.Requests++
-	qs := r.URL.Query()
+
+	reply := htmlHeader(s.SrvLoc) + `<h1>Add a pingmesh Peer</h1>`
 
 	aphError := func(reason string) {
 		log.Println("AddPingHandler error:", reason)
-
-		response := htmlHeader(s.SrvLoc)
-		response += "<h1> Error: AddPing </h1>\n<p>" + reason + htmlTrailer
-		w.Write([]byte(response))
+		reply += "<b>Error adding pingmesh peer:" + reason + "</b>" + htmlTrailer
+		w.Write([]byte(reply))
 		return
 	}
 
+	qs := r.URL.Query()
 	if len(qs) == 0 {
-		aphError("You did not specify any parameters")
+		reply += `<p>Enter the hostname (for SNI and virtual hosting),
+an optional IP address (default is to lookup the hostname),
+and optional port number (default is 443).</p>
+<form action="/v1/addpeer">
+<br>Host:  <input type="text" name="host" value="pingmesh.run.rafay-edge.net">
+<br>Port:  <input type="text" name="port" value="443">
+<br>IP(*): <input type="text" name="ip" value="">
+<p><input type="submit" value="Submit">
+</form>` + htmlTrailer
+
+		w.Write([]byte(reply))
 		return
 	}
 
@@ -160,29 +170,25 @@ func (s *meshSrv) AddPingHandler(w http.ResponseWriter, r *http.Request) {
 	ports := qs["port"]
 	hosts := qs["host"]
 
-	if len(hosts) > 0 {
-		host = hosts[0]
+	if len(hosts) == 0 {
+		aphError("Please include a valid hostname")
+		return
+	}
+	host = hosts[0]
+	if len(ips) == 0 {
+		ips, _ = net.LookupHost(host)
 		if len(ips) == 0 {
-			ips, _ = net.LookupHost(host)
-			if len(ips) == 0 {
-				aphError("Found zero IPs for host " + host)
-				return
-			}
-		}
-		ip = ips[0]
-	} else {
-		if len(ips) == 0 {
-			aphError("No host or ips")
+			aphError("Found zero IPs for host " + host)
 			return
 		}
-		ip = ips[0]
-		host = ips[0]
 	}
+	ip = ips[0]
+
 	// assert ip && host are set
 	if len(ports) > 0 {
 		port = ports[0]
 	} else {
-		port = "80"
+		port = "443"
 	}
 
 	sOrNo := ""
@@ -193,6 +199,16 @@ func (s *meshSrv) AddPingHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Add peer host ip:port = "+host, ip+":"+port, "via", url)
 	AddPingTarget(url, "", 0, 10)
 	//  AddPeer(host, ip, port, 0, 10)
+
+	reply += `<p>Added information about the following ping meer you entered:
+<br>Host: ` + host + `
+<br>IP: ` + ip + `
+<br>Port: ` + port + `
+</p>` + `
+<p><a href="/v1/peers">Click here</a> for JSON peer list.` + htmlTrailer
+
+	w.Write([]byte(reply))
+	return
 }
 
 func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
