@@ -19,8 +19,12 @@ import (
 )
 
 const (
+	// HTML markers delimit peer location in response body
 	ServedFromPrefix = "<p>Served from "
 	ServedFromSuffix = "\n"
+	// JSON markers for /peers API response body
+	SrvLocPrefix = `"SrvLoc": "`
+	SrvLocSuffix = `"`
 
 	HttpUnknown = 502
 	LocUnknown  = "unknown"
@@ -200,7 +204,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 	} else {
 		status = resp.StatusCode
 		if status == 200 && IsPingmeshPeer(url.Path) {
-			location, bytes = readPingResp(req, resp)
+			location, bytes = readPingResp(req, resp, strings.HasSuffix(url.Path, "/v1/peers"))
 		} else {
 			bytes = readDiscardBody(req, resp)
 		}
@@ -227,7 +231,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 
 func IsPingmeshPeer(path string) bool {
 	for _, ppp := range PingPeerPaths {
-		if path == ppp {
+		if strings.HasSuffix(path, ppp) {
 			return true
 		}
 	}
@@ -236,7 +240,7 @@ func IsPingmeshPeer(path string) bool {
 
 // readPingResp consumes an HTML ping response body, expecting a location
 // string in the <title> and body.  Discards the remaining body.
-func readPingResp(req *http.Request, resp *http.Response) (location string, bytes int64) {
+func readPingResp(req *http.Request, resp *http.Response, json bool) (location string, bytes int64) {
 	if req.Method == http.MethodHead {
 		log.Printf("no HTTP response body in a HEAD")
 		return
@@ -250,18 +254,30 @@ func readPingResp(req *http.Request, resp *http.Response) (location string, byte
 	}
 
 	sb := string(body)
-	locStart := strings.Index(sb, ServedFromPrefix)
+	var prefix, suffix, encoding string
+	if json {
+		prefix = SrvLocPrefix
+		suffix = SrvLocSuffix
+		encoding = "JSON"
+	} else {
+		prefix = ServedFromPrefix
+		suffix = ServedFromSuffix
+		encoding = "HTML"
+	}
+
+	locStart := strings.Index(sb, prefix)
 	if locStart > 0 {
-		locStart += len(ServedFromPrefix) // start of the text
-		locEnd := strings.Index(sb[locStart:], ServedFromSuffix)
+		locStart += len(prefix) // start of the text
+		locEnd := strings.Index(sb[locStart:], suffix)
 		if locEnd > 0 {
 			location = sb[locStart : locStart+locEnd]
 		} else {
-			log.Println("Found location prefix, but no suffix?")
+			log.Println("Found location prefix, but no suffix in", encoding, "body")
 		}
 	} else {
-		log.Println("Did not find location prefix in content body")
+		log.Println("Did not find location prefix in", encoding, "content body")
 	}
+
 	return
 }
 
