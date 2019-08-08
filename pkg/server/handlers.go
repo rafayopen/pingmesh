@@ -189,7 +189,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 			//log.Println("Add ping target", url+override)
 		}
 
-		if peer, err := AddPingTarget(url, ip, client.LocUnknown, 0, 10); err != nil {
+		if peer, err := AddPingTarget(url, ip, client.LocUnknown); err != nil {
 			log.Println("error adding peer", peer)
 			if err == PeerAlreadyPresent {
 				reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:

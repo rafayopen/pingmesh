@@ -61,8 +61,8 @@ var (
 
 ////
 //  AddPingTarget adds a ping target at the given url, in location loc.  It
-//  will ping numTests times with a pingDelay between each test.
-func AddPingTarget(url, ip, loc string, numTests, pingDelay int) (*peer, error) {
+//  picks up numTests and pingDelay from the pingmesh server instance.
+func AddPingTarget(url, ip, loc string) (*peer, error) {
 	ms := PingmeshServer()
 
 	peer := ms.FindPeer(url, ip)
@@ -71,7 +71,7 @@ func AddPingTarget(url, ip, loc string, numTests, pingDelay int) (*peer, error) 
 	}
 
 	// Create a new peer -- and increment the server's wait group
-	peer = ms.NewPeer(url, ip, loc, numTests, pingDelay)
+	peer = ms.NewPeer(url, ip, loc)
 	go peer.Ping()
 	return peer, nil
 }

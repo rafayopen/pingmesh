@@ -35,6 +35,9 @@ type meshSrv struct {
 	NumActive  int     // count of active peers
 	NumDeleted int     // count of deleted peers
 
+	NumTests  int // from main() command line args or env vars
+	PingDelay int // from main() command line args or env vars
+
 	wg      *sync.WaitGroup // ping and server threads share this wg
 	mu      sync.Mutex      // make meshSrv reentrant (protect peers)
 	done    chan int        // used to signal when threads should exit
@@ -53,7 +56,7 @@ var (
 //  NewPingmeshServer creates a new server instance (only once), assigns its
 //  values from the parameters, sets up HTTP routes, and starts a web server
 //  on the local host:port if configured.
-func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, verbose int) *meshSrv {
+func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, numTests, pingDelay, verbose int) *meshSrv {
 	if report == 0 {
 		report = port
 	}
@@ -67,6 +70,8 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, ve
 			SrvPort:    report,
 			listenPort: port,
 			cwFlag:     cwFlag,
+			NumTests:   numTests,
+			PingDelay:  pingDelay,
 			verbose:    verbose,
 			wg:         new(sync.WaitGroup), // used by server and ping peers, controls exit from main()
 			done:       make(chan int),      // signals goroutines to exit after signal caught in main()
