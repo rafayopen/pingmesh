@@ -274,6 +274,26 @@ func (p *peer) Ping() {
 }
 
 ////
+//  AddPeersPeers attempts to add my peer's peers to my list.
+//  The peer must be a pingmesh peer (must support /v1/peers).
+//  The peer's peers will be looked up in the local list, and any that are
+//  not present will be added to the list with Ping() goroutines started.
+func (p *peer) AddPeersPeers() {
+	ms := PingmeshServer()
+
+	newpeer := ms.FindPeer(url, ip)
+	if newpeer != nil {
+		log.Println("peer", url, ip, "-- PeerAlreadyPresent")
+	} else {
+		log.Println("peer", url, ip, "-- does not exist, adding")
+	}
+
+	peer = ms.NewPeer(url, ip, loc, numTests, pingDelay)
+	go peer.Ping()
+	return peer, nil
+}
+
+////
 //  JitterPct returns a millisecond time.Duration jittered by +/- pct, which
 //  should be between 1 and 100.  The returned duration will never be negative.
 func JitterPct(secs, pct int) time.Duration {

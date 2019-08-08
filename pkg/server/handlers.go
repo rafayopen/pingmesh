@@ -176,33 +176,38 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 		aphError("Please include a valid URL")
 		return
 	}
+	if len(urls) > 1 {
+		reply += `<p><b>Warning: Only one URL accepted</b>, but ` + len(urls) + `supplied</p>\n`
+	}
 
-	for n, url := range urls {
-		url = strings.Trim(url, " \t")
-		var ip, override string // optional IP override
+	url = strings.Trim(url[0], " \t")
+	var ip, override string // optional IP override
 
-		if s.Verbose() > 1 {
-			if len(ips) > n && len(ips[n]) > 0 {
-				ip = strings.Trim(ips[n], " \t")
-				override = " (with IP override " + ip + ")"
-			}
-			//log.Println("Add ping target", url+override)
-		}
-
-		if peer, err := AddPingTarget(url, ip, client.LocUnknown, 0, 10); err != nil {
-			log.Println("error adding peer", peer)
-			if err == PeerAlreadyPresent {
-				reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
-<br>Url: ` + peer.Url + `
-<br>IP: ` + peer.PeerIP + `</p><p><a href="/v1/peers">Click here</a> for JSON peer list.`
-			} else {
-				reply += `<p>Unknown error: ` + err.Error()
-			}
-		} else { // err == nil, peer had better != nil
-			reply += `<p>Added a new peer for ` + url + override + `
-<p><a href="/v1/peers">Click here</a> for JSON peer list.`
+	if len(ips) > 0 {
+		ip = strings.Trim(ips[0], " \t")
+		override = " (with IP override " + ip + ")"
+		if len(ips) > 1 {
+			reply += `<p><b>Warning: Only one IP override accepted</b>, but ` + len(ips) + `supplied</p>\n`
 		}
 	}
+
+	if peer, err := AddPingTarget(url, ip, client.LocUnknown, 0, 10); err != nil {
+		log.Println("error adding peer", peer)
+		if err == PeerAlreadyPresent {
+			reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
+<br>Url: ` + peer.Url + `
+<br>IP: ` + peer.PeerIP + `</p><p><a href="/v1/peers">Click here</a> for JSON peer list.`
+		} else {
+			reply += `<p>Unknown error: ` + err.Error()
+		}
+	} else { // err == nil, peer had better != nil
+		reply += `<p>Added a new peer for ` + url + override + `
+<p><a href="/v1/peers">Click here</a> for JSON peer list.`
+		////
+		// Now see if we are supposed to add this peer's peers
+		addpeers := qs["addpeers"]
+	}
+
 	reply += htmlTrailer
 
 	w.Write([]byte(reply))
