@@ -6,7 +6,7 @@ import (
 
 	"context"
 	"crypto/tls"
-	//"io"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -61,7 +61,7 @@ func HostNoPort(addr string) string {
 // NOTE: the location handling is different from perftest!  The caller does
 // not pass in a location, instead location is parsed from the response body
 // and returned in pt.Location.
-func FetchURL(rawurl, rmtIP string, reader func(*http.Request, *http.Response) string) *pt.PingTimes {
+func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 	// Leveraged from https://github.com/reorx/httpstat
 	url := ParseURL(rawurl)
 	if url == nil {
@@ -70,33 +70,24 @@ func FetchURL(rawurl, rmtIP string, reader func(*http.Request, *http.Response) s
 	}
 
 	urlStr := url.Scheme + "://" + url.Host + url.Path
-	peerAddr := url.Host // may contain a port number
 
-	/*
-		if pi := portIndex(url.Host); pi > 0 {
-			urlPort = url.Host[pi+1:]
-			log.Println("found urlPort", urlPort, "trimming", url.Host)
-			url.Host = url.Host[:pi]
-		}
-	*/
+	peerPort := "443"
+	if url.Scheme == "http" {
+		peerPort = "80"
+	}
+
+	peerAddr := url.Host // may contain a port number, if not must add one
+	pi := portIndex(url.Host)
+	if pi < 0 { // no port, must add one to peerAddr
+		peerAddr += ":" + peerPort
+	}
 
 	if len(rmtIP) > 0 { // override the hostname with a specific IP
-		// in this case the hostname should not include a port, else we will
-		// have to parse it out per the code above
 		if pi := portIndex(url.Host); pi > 0 {
 			port := url.Host[pi+1:]
 			peerAddr = rmtIP + ":" + port
 			log.Println("override host", url.Host, "with IP[:port]", peerAddr)
 		}
-		/*
-			peerAddr = rmtIP
-			if ips := GetIPs(url.Host); len(ips) > 0 {
-				log.Println("found IPs for", url.Host, ":", ips, ips[0])
-				rmtIP = ips[0].String()
-			} else {
-				log.Println("lookup of", url.Host, "found no IPs, gonna fail")
-			}
-		*/
 	}
 
 	httpMethod := http.MethodGet
@@ -195,19 +186,12 @@ func FetchURL(rawurl, rmtIP string, reader func(*http.Request, *http.Response) s
 	} else {
 		status = resp.StatusCode
 		if status == 200 {
-			location = ReadPingResp(req, resp)
+			location, bytes = readPingResp(req, resp)
+		} else {
+			bytes = readDiscardBody(req, resp)
 		}
 	}
 	tClose = time.Now() // after read body
-
-	if tTcpHs.IsZero() { // DNS lookup failed or otherwise failed to connect
-		tTcpHs = tDnsLk
-		tFirst = tClose
-		tConnd = tFirst
-	} else if tConnd.IsZero() { // in case of read: connection reset by peer
-		tFirst = tClose
-		tConnd = tFirst
-	}
 
 	p := pt.PingTimes{
 		Start:    tStart,             // request start
@@ -229,13 +213,14 @@ func FetchURL(rawurl, rmtIP string, reader func(*http.Request, *http.Response) s
 
 // readPingResp consumes an HTML ping response body, expecting a location
 // string in the <title> and body.  Discards the remaining body.
-func ReadPingResp(req *http.Request, resp *http.Response) (location string) {
+func readPingResp(req *http.Request, resp *http.Response) (location string, bytes int64) {
 	if req.Method == http.MethodHead {
 		log.Printf("no HTTP response body in a HEAD")
 		return
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
+	bytes = int64(len(body))
 	if err != nil {
 		log.Println("readPingResp:", err)
 		return
@@ -254,6 +239,20 @@ func ReadPingResp(req *http.Request, resp *http.Response) (location string) {
 		log.Println("Did not find location prefix in:\n" + sb)
 	}
 	return
+}
+
+// Consumes the body of the response ... simply discarding it (as fast as possible).
+func readDiscardBody(req *http.Request, resp *http.Response) int64 {
+	if req.Method == http.MethodHead {
+		return 0
+	}
+
+	w := ioutil.Discard
+	bytes, err := io.Copy(w, resp.Body)
+	if err != nil {
+		log.Printf("reading HTTP response body: %v", err)
+	}
+	return bytes
 }
 
 // LocationFromEnv returns the current location from environment variables:

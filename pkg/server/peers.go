@@ -158,20 +158,7 @@ func (p *peer) Ping() {
 
 		////
 		// Try to fetch the URL
-		ptResult := client.FetchURL(p.Url, p.PeerIP, client.ReadPingResp)
-		/*
-			if len(ptResult.Remote) > 0 && p.PeerIP != ptResult.Remote {
-				// TODO: propagate IP into FetchURL ... and faking-SNI
-				if p.ms.Verbose() > 1 {
-					if p.PeerIP == "" {
-						log.Println("Initialize IP to", ptResult.Remote)
-						p.PeerIP = ptResult.Remote
-					} else {
-						log.Println("IP changed:", p.PeerIP, "is now", ptResult.Remote, "???")
-					}
-				}
-			}
-		*/
+		ptResult := client.FetchURL(p.Url, p.PeerIP)
 
 		switch {
 		// result nil, something totally failed
@@ -188,7 +175,7 @@ func (p *peer) Ping() {
 			continue
 
 		// HTTP 200 OK
-		case ptResult.RespCode == 200:
+		case ptResult.RespCode < 300:
 			// Take a write lock on this peer before updating values, then
 			// take a read lock on p in order to read/return its result
 			// in handlers.go (i.e., make each peer reentrant, also peers)
@@ -225,7 +212,7 @@ func (p *peer) Ping() {
 			}()
 
 		// HTTP 500 series error
-		case ptResult.RespCode > 500:
+		case ptResult.RespCode > 304:
 			func() {
 				p.mu.Lock()
 				defer p.mu.Unlock()
