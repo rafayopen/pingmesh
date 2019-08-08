@@ -8,7 +8,7 @@
 package main
 
 import (
-	//	"github.com/rafayopen/pingmesh/pkg/client"
+	"github.com/rafayopen/pingmesh/pkg/client"
 	"github.com/rafayopen/pingmesh/pkg/server"
 
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
@@ -145,7 +145,7 @@ func main() {
 	////
 	// Start a Pinger for each endpoint on the command line
 	for _, url := range endpoints {
-		location := "unknown"
+		location := client.LocUnknown
 		parts := strings.Split(url, "#")
 		if len(parts) > 1 {
 			location = parts[1]

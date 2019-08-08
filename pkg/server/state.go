@@ -66,7 +66,7 @@ func (ms *meshSrv) Delete(p *peer) {
 	found := 0
 
 	for _, plist := range ms.Peers {
-		if plist.Url == p.Url && plist.PeerIP == p.PeerIP {
+		if plist.Url == p.Url && (len(p.PeerIP) == 0 || plist.PeerIP == p.PeerIP) {
 			found++
 		} else {
 			newPeers = append(newPeers, plist)

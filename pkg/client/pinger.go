@@ -18,8 +18,21 @@ import (
 	"time"
 )
 
-const ServedFromPrefix = "<p>Served from "
-const ServedFromSuffix = "\n"
+const (
+	ServedFromPrefix = "<p>Served from "
+	ServedFromSuffix = "\n"
+
+	HttpUnknown = 502
+	LocUnknown  = "unknown"
+)
+
+var (
+	PingPeerPaths = []string{
+		"/v1/peers",
+		"/v1/ping",
+		"/v1/addpeer",
+	}
+)
 
 // Parse the uri argument and return URL object for it, or nil on failure.
 func ParseURL(uri string) *url.URL {
@@ -177,8 +190,8 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 	// capturing starttime here just before client.Do() would be more correct, but cause
 	// tStart (DNS lookup start time) to appear to be in the past.  Is that OK?  I think no,
 	// so request start time is before the connection is attempted.
-	status := 520
-	var location string
+	status := HttpUnknown
+	location := LocUnknown
 	var bytes int64
 	resp, err := client.Do(req)
 	if resp != nil {
@@ -189,7 +202,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		log.Printf("reading response: %v", err)
 	} else {
 		status = resp.StatusCode
-		if status == 200 {
+		if status == 200 && IsPingmeshPeer(url.Path) {
 			location, bytes = readPingResp(req, resp)
 		} else {
 			bytes = readDiscardBody(req, resp)
@@ -215,6 +228,15 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 	return &p
 }
 
+func IsPingmeshPeer(path string) bool {
+	for _, ppp := range PingPeerPaths {
+		if path == ppp {
+			return true
+		}
+	}
+	return false
+}
+
 // readPingResp consumes an HTML ping response body, expecting a location
 // string in the <title> and body.  Discards the remaining body.
 func readPingResp(req *http.Request, resp *http.Response) (location string, bytes int64) {
@@ -229,6 +251,7 @@ func readPingResp(req *http.Request, resp *http.Response) (location string, byte
 		log.Println("readPingResp:", err)
 		return
 	}
+
 	sb := string(body)
 	locStart := strings.Index(sb, ServedFromPrefix)
 	if locStart > 0 {
@@ -237,10 +260,10 @@ func readPingResp(req *http.Request, resp *http.Response) (location string, byte
 		if locEnd > 0 {
 			location = sb[locStart : locStart+locEnd]
 		} else {
-			log.Println("Found location prefix but no suffix in:\n" + sb)
+			log.Println("Found location prefix, but no suffix?")
 		}
 	} else {
-		log.Println("Did not find location prefix in:\n" + sb)
+		log.Println("Did not find location prefix in content body")
 	}
 	return
 }

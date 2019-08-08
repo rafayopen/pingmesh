@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"sort"
@@ -152,13 +151,16 @@ func (s *meshSrv) AddPingHandler(w http.ResponseWriter, r *http.Request) {
 
 	qs := r.URL.Query()
 	if len(qs) == 0 {
-		reply += `<p>Enter the hostname (for SNI and virtual hosting),
-an optional IP address (default is to lookup the hostname),
-and optional port number (default is 443).</p>
+		reply += `<p>Enter the URL to ping including :port if necessary.
+You may specify an optional IP address (default is to lookup the hostname),
+this will send the request to that IP address with the hostname in the URL.
+<br>Example <em>https://www.google.com/</em> will collect perf data from google,
+or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
+(in this case you should use an IP override, else it will ping itself).</p>
+
 <form action="/v1/addpeer">
-<br>Host:  <input type="text" name="host" value="pingmesh.run.rafay-edge.net">
-<br>Port:  <input type="text" name="port" value="443">
-<br>IP(*): <input type="text" name="ip" value=""> (overrides DNS lookup)
+<br>URL: <input type="text" name="url" value="https://rafay.co">
+<br>IP(*): <input type="text" name="ip" value=""> (overrides DNS lookup if set)
 <p><input type="submit" value="Submit">
 </form>` + htmlTrailer
 
@@ -166,54 +168,37 @@ and optional port number (default is 443).</p>
 		return
 	}
 
-	var ip, host, port string
-
+	urls := qs["url"]
 	ips := qs["ip"]
-	ports := qs["port"]
-	hosts := qs["host"]
 
-	if len(hosts) == 0 {
-		aphError("Please include a valid hostname")
+	if len(urls) == 0 {
+		aphError("Please include a valid URL")
 		return
 	}
-	host = hosts[0]
-	if len(ips) == 0 {
-		ips, _ = net.LookupHost(host)
-		if len(ips) == 0 {
-			aphError("Found zero IPs for host " + host)
-			return
+
+	for n, url := range urls {
+		var ip string // optional IP override
+
+		if s.Verbose() > 1 {
+			if len(ips) > n && len(ips[n]) > 0 {
+				ip = " (with IP override " + ips[n] + ")"
+			}
+			log.Println("Add ping target", url, ip)
 		}
-	}
-	ip = ips[0]
 
-	// assert ip && host are set
-	if len(ports) > 0 {
-		port = ports[0]
-	} else {
-		port = "443"
-	}
-
-	sOrNo := ""
-	if port == "443" || port == "8443" {
-		sOrNo = "s"
-	}
-	url := "http" + sOrNo + "://" + host + ":" + port + "/v1/ping"
-	if s.Verbose() > 1 {
-		log.Println("Add peer host ip:port = "+host, ip+":"+port, "via", url)
-	}
-
-	if peer, err := AddPingTarget(url, ip, "unknown", 0, 10); err != nil {
-		log.Println("error with peer", peer)
-		reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
+		if peer, err := AddPingTarget(url, ip, client.LocUnknown, 0, 10); err != nil {
+			log.Println("error adding peer", peer)
+			if err == PeerAlreadyPresent {
+				reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
 <br>Url: ` + peer.Url + `
 <br>IP: ` + peer.PeerIP + `</p><p><a href="/v1/peers">Click here</a> for JSON peer list.`
-	} else {
-		reply += `<p>Added information about the following ping meer you entered:
-<br>Host: ` + host + `
-<br>IP: ` + ip + `
-<br>Port: ` + port + `
-</p>` + `
+			} else {
+				reply += `<p>Unknown error: ` + err.Error()
+			}
+		} else { // err == nil, peer had better != nil
+			reply += `<p>Added a new peer for ` + url + ip + `
 <p><a href="/v1/peers">Click here</a> for JSON peer list.`
+		}
 	}
 	reply += htmlTrailer
 
