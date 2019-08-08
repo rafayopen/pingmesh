@@ -176,17 +176,18 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 		aphError("Please include a valid URL")
 		return
 	}
+	if len(urls) > 1 {
+		reply += `<p><b>Warning: Only one URL accepted</b>, but ` + string(len(urls)) + `supplied</p>\n`
+	}
 
-	for n, url := range urls {
-		url = strings.Trim(url, " \t")
-		var ip, override string // optional IP override
+	url := strings.Trim(urls[0], " \t")
+	var ip, override string // optional IP override
 
-		if s.Verbose() > 1 {
-			if len(ips) > n && len(ips[n]) > 0 {
-				ip = strings.Trim(ips[n], " \t")
-				override = " (with IP override " + ip + ")"
-			}
-			//log.Println("Add ping target", url+override)
+	if len(ips) > 0 {
+		ip = strings.Trim(ips[0], " \t")
+		override = " (with IP override " + ip + ")"
+		if len(ips) > 1 {
+			reply += `<p><b>Warning: Only one IP override accepted</b>, but ` + string(len(ips)) + `supplied</p>\n`
 		}
 
 		if peer, err := AddPingTarget(url, ip, client.LocUnknown); err != nil {

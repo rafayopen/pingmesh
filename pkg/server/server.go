@@ -121,3 +121,61 @@ func (ms *meshSrv) startServer() error {
 
 	return err
 }
+
+////////////////////////////////////////////////////////////////////////////////////////
+//  Internal fetch methods
+////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	getPeersUrl = "/v1/peers"
+)
+
+func fetchRemoteServer(url, ip) (rm *server, err error) {
+
+	// need to move this from func (stack scope) to module scope?
+	tr := &http.Transport{
+		MaxIdleConns:          100,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // Warning: skips CA checks, but ping doesn't care
+		},
+	}
+
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   10 * time.Second,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, getPeersUrl, nil)
+	if err != nil {
+		log.Println("fetchRemoteServer: NewRequest", err)
+		return
+	}
+
+	req.Header.Set("User-Agent", "pingmesh-client")
+	resp, err := client.Do(req)
+	if resp != nil {
+		// Close body if non-nil, whatever err says (even if err non-nil)
+		defer resp.Body.Close() // after we read the resonse body
+	}
+	if err != nil {
+		log.Println("fetchRemoteServer: client.request:", err)
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("fetchRemoteServer: ReadAll body:", err)
+		return
+	}
+
+	err := json.Unmarshal(body, rm)
+	if err != nil {
+		log.PrintlnI("fetchRemoteServer: json.Unmarshal:", err)
+		return
+	}
+
+	return // rm should be initialized by now
+}
