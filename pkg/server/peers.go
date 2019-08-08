@@ -201,7 +201,7 @@ func (p *peer) Ping() {
 				}
 				if p.Location != *ptResult.Location {
 					if p.ms.Verbose() > 1 {
-						if p.Location == "undefined" {
+						if p.Location == "unknown" {
 							log.Println("Initialize location to", *ptResult.Location)
 						} else {
 							log.Println("Location changed:", p.Location, "is now", *ptResult.Location)

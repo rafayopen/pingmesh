@@ -112,7 +112,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		ConnectStart: func(_, _ string) {
 			if tDnsLk.IsZero() {
 				// connecting to IP -- may be called multiple times (see httptrace.ClientTrace doc)
-				// so only kee the first timestamp
+				// so only kee the first timestamp; DnsLk will be exactly zero
 				tDnsLk = tStart
 			}
 		},
@@ -121,7 +121,11 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 			rmtAddr = HostNoPort(addr)
 			if err != nil {
 				log.Printf("connect %s: %v", addr, err)
-				// return
+				tTlsSt = tTcpHs
+				tTlsHs = tTcpHs
+				tFirst = tTcpHs
+				tConnd = tTcpHs
+				tClose = tTcpHs
 			}
 		},
 

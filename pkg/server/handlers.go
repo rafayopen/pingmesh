@@ -202,7 +202,7 @@ and optional port number (default is 443).</p>
 		log.Println("Add peer host ip:port = "+host, ip+":"+port, "via", url)
 	}
 
-	if peer, err := AddPingTarget(url, ip, "undefined", 0, 10); err != nil {
+	if peer, err := AddPingTarget(url, ip, "unknown", 0, 10); err != nil {
 		log.Println("error with peer", peer)
 		reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
 <br>Url: ` + peer.Url + `

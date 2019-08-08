@@ -145,7 +145,7 @@ func main() {
 	////
 	// Start a Pinger for each endpoint on the command line
 	for _, url := range endpoints {
-		location := "undefined"
+		location := "unknown"
 		parts := strings.Split(url, "#")
 		if len(parts) > 1 {
 			location = parts[1]
