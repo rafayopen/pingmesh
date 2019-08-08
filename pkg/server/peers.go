@@ -143,7 +143,7 @@ func (p *peer) Ping() {
 		////
 		// Sleep first, allows risk-free continue from error cases below
 		select {
-		case <-time.After(JitterPct(p.Delay, 10)):
+		case <-time.After(JitterPct(p.Delay, 1)):
 			// we waited for the delay and got nothing ... loop around
 
 		case newdelay, more := <-p.ms.DoneChan():
@@ -279,8 +279,7 @@ func (p *peer) Ping() {
 func JitterPct(secs, pct int) time.Duration {
 	if pct < 1 {
 		pct = 1
-	} else if pct > 200 {
-		// prevents retval from going negative
+	} else if pct > 200 { // prevents retval from going negative
 		pct = 200
 	}
 

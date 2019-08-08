@@ -158,7 +158,7 @@ and optional port number (default is 443).</p>
 <form action="/v1/addpeer">
 <br>Host:  <input type="text" name="host" value="pingmesh.run.rafay-edge.net">
 <br>Port:  <input type="text" name="port" value="443">
-<br>IP(*): <input type="text" name="ip" value="">
+<br>IP(*): <input type="text" name="ip" value=""> (overrides DNS lookup)
 <p><input type="submit" value="Submit">
 </form>` + htmlTrailer
 

@@ -86,7 +86,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		if pi := portIndex(url.Host); pi > 0 {
 			port := url.Host[pi+1:]
 			peerAddr = rmtIP + ":" + port
-			log.Println("override host", url.Host, "with IP[:port]", peerAddr)
+			//			log.Println("override host", url.Host, "with IP[:port]", peerAddr)
 		}
 	}
 
