@@ -143,13 +143,12 @@ func main() {
 	////
 	// Start a Pinger for each endpoint on the command line
 	for _, url := range endpoints {
-		location := pm.SrvLocation()
-		// TODO: take location out of argument (URL parameter)
+		location := "undefined"
 		parts := strings.Split(url, "#")
 		if len(parts) > 1 {
 			location = parts[1]
 		}
-		server.AddPingTarget(url, location, numTests, pingDelay)
+		server.AddPingTarget(url, "", location, numTests, pingDelay)
 	}
 
 	if verbose > 1 {

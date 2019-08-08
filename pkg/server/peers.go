@@ -6,6 +6,7 @@ import (
 	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes but not fetchurl
 
+	"errors"
 	"fmt"
 	//"io"
 	//	"io/ioutil"
@@ -45,12 +46,34 @@ type peer struct {
 }
 
 ////
+//  Peer errors
+type peersError struct {
+	reason string
+}
+
+func (e *peersError) Error() string {
+	return e.reason
+}
+
+var (
+	PeerAlreadyPresent = errors.New("Peer already present in peers list")
+)
+
+////
 //  AddPingTarget adds a ping target at the given url, in location loc.  It
 //  will ping numTests times with a pingDelay between each test.
-func AddPingTarget(url, loc string, numTests, pingDelay int) {
+func AddPingTarget(url, ip, loc string, numTests, pingDelay int) (*peer, error) {
+	ms := PingmeshServer()
+
+	peer := ms.FindPeer(url, ip)
+	if peer != nil {
+		return peer, PeerAlreadyPresent
+	}
+
 	// Create a new peer -- and increment the server's wait group
-	peer := PingmeshServer().NewPeer(url, loc, numTests, pingDelay)
+	peer = ms.NewPeer(url, ip, loc, numTests, pingDelay)
 	go peer.Ping()
+	return peer, nil
 }
 
 ////
@@ -69,9 +92,8 @@ func init() {
 func (p *peer) Ping() {
 	// this task is recorded in the waitgroup, so clear waitgroup on return
 	defer p.ms.Done()
-
 	// This must come after Done and before Reporter (executes in reverse order)
-	defer p.ms.Delete(p.Url)
+	defer p.ms.Delete(p.Url, p.PeerIP)
 
 	if p.ms.Verbose() > 1 {
 		log.Println("ping", p.Url)
@@ -138,11 +160,18 @@ func (p *peer) Ping() {
 		// Try to fetch the URL
 		ptResult := client.FetchURL(p.Url, client.ReadPingResp)
 		if p.PeerIP != ptResult.Remote {
+			// TODO: propagate IP into FetchURL ... and faking-SNI
+			if p.ms.Verbose() > 1 {
+				if p.PeerIP == "" {
+					log.Println("Initialize IP to", ptResult.Remote)
+				} else {
+					log.Println("IP changed:", p.PeerIP, "is now", ptResult.Remote)
+				}
+			}
 			p.PeerIP = ptResult.Remote
 		}
 
 		switch {
-
 		// result nil, something totally failed
 		case nil == ptResult:
 			func() {
@@ -182,7 +211,13 @@ func (p *peer) Ping() {
 					p.PingTotals.Size += ptResult.Size
 				}
 				if p.Location != *ptResult.Location {
-					log.Println("Found new location, updating", p.Location, "to", *ptResult.Location)
+					if p.ms.Verbose() > 1 {
+						if p.Location == "undefined" {
+							log.Println("Initialize location to", *ptResult.Location)
+						} else {
+							log.Println("Location changed:", p.Location, "is now", *ptResult.Location)
+						}
+					}
 					p.Location = *ptResult.Location
 				}
 			}()

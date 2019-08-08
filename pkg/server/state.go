@@ -12,7 +12,7 @@ import (
 ////
 //  NewPeer creates a new peer and increments the server's WaitGroup by one
 //  (this needs to happen before invoking the goroutine)
-func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
+func (ms *meshSrv) NewPeer(url, ip, location string, limit, delay int) *peer {
 	////
 	//  ONLY create a NewPeer if you are planning to "go peer.Ping" right after!
 	ms.wg.Add(1)
@@ -21,6 +21,7 @@ func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 
 	p := peer{
 		Url:      url,
+		PeerIP:   ip,
 		Limit:    limit,
 		Delay:    delay,
 		Location: location,
@@ -38,10 +39,23 @@ func (ms *meshSrv) NewPeer(url, location string, limit, delay int) *peer {
 	return &p
 }
 
+func (ms *meshSrv) FindPeer(url, ip string) *peer {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	for _, p := range ms.Peers {
+		// It's OK to ping the same URL (host) on multiple IPs
+		if p.Url == url && p.PeerIP == ip {
+			return p
+		}
+	}
+	return nil
+}
+
 ////
-//  DeletePeer removes a peer from the peer list.  The caller (likely
-//  Ping() from a deferred func) will need to call WaitGroup.Done.
-func (ms *meshSrv) Delete(peerUrl string) {
+//  Delete removes all peers from the peer list matching url and ip.  The
+//  caller (e.g., from Ping()) MUST follow Delete with WaitGroup.Done.
+func (ms *meshSrv) Delete(peerUrl, ip string) {
 	ms.mu.Lock() // protect this whole dang func...
 	defer ms.mu.Unlock()
 
@@ -51,24 +65,27 @@ func (ms *meshSrv) Delete(peerUrl string) {
 	var peers []*peer // replacement peer array
 	found := 0
 
-	// TODO: (make reentrant)
 	for _, p := range ms.Peers {
-		if p.Url != peerUrl {
-			peers = append(peers, p)
-		} else {
+		if p.Url == peerUrl && p.PeerIP == ip {
 			found++
+		} else {
+			peers = append(peers, p)
 		}
 	}
 	switch found {
 	case 0:
-		log.Println("Warning: failed to delete pinger for", peerUrl)
+		if ms.Verbose() > 0 {
+			log.Println("Warning: failed to delete pinger for", peerUrl, "on", ip)
+		}
 		return
 	case 1:
 		if ms.Verbose() > 0 {
 			log.Println("Deleted pinger for", peerUrl)
 		}
 	default:
-		log.Println("Note: deleted", found, "pingers for", peerUrl)
+		if ms.Verbose() > 0 {
+			log.Println("Note: deleted", found, "pingers for", peerUrl, "on", ip)
+		}
 	}
 	ms.Peers = peers
 }

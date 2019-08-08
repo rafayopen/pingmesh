@@ -142,7 +142,9 @@ func (s *meshSrv) AddPingHandler(w http.ResponseWriter, r *http.Request) {
 	reply := htmlHeader(s.SrvLoc) + `<h1>Add a pingmesh Peer</h1>`
 
 	aphError := func(reason string) {
-		log.Println("AddPingHandler error:", reason)
+		if s.Verbose() > 0 {
+			log.Println("AddPingHandler error:", reason)
+		}
 		reply += "<b>Error adding pingmesh peer:" + reason + "</b>" + htmlTrailer
 		w.Write([]byte(reply))
 		return
@@ -196,16 +198,24 @@ and optional port number (default is 443).</p>
 		sOrNo = "s"
 	}
 	url := "http" + sOrNo + "://" + host + ":" + port + "/v1/ping"
-	log.Println("Add peer host ip:port = "+host, ip+":"+port, "via", url)
-	AddPingTarget(url, "", 0, 10)
-	//  AddPeer(host, ip, port, 0, 10)
+	if s.Verbose() > 1 {
+		log.Println("Add peer host ip:port = "+host, ip+":"+port, "via", url)
+	}
 
-	reply += `<p>Added information about the following ping meer you entered:
+	if peer, err := AddPingTarget(url, ip, "undefined", 0, 10); err != nil {
+		log.Println("error with peer", peer)
+		reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
+<br>Url: ` + peer.Url + `
+<br>IP: ` + peer.PeerIP + `</p><p><a href="/v1/peers">Click here</a> for JSON peer list.`
+	} else {
+		reply += `<p>Added information about the following ping meer you entered:
 <br>Host: ` + host + `
 <br>IP: ` + ip + `
 <br>Port: ` + port + `
 </p>` + `
-<p><a href="/v1/peers">Click here</a> for JSON peer list.` + htmlTrailer
+<p><a href="/v1/peers">Click here</a> for JSON peer list.`
+	}
+	reply += htmlTrailer
 
 	w.Write([]byte(reply))
 	return
