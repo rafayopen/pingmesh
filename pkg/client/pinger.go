@@ -92,17 +92,17 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 	if url.Scheme == "http" {
 		rmtPort = "80"
 	}
+	if pi := portIndex(url.Host); pi > 0 {
+		// a port was specified, use it even if IP override
+		rmtPort = url.Host[pi+1:]
+		url.Host = url.Host[:pi]
+	}
 
 	var peerAddr string // host:port or IP:port
 	if len(rmtIP) > 0 { // IP:port since override specified
 		peerAddr = rmtIP + ":" + rmtPort
 	} else {
-		if pi := portIndex(url.Host); pi > 0 {
-			peerAddr = url.Host
-		} else {
-			// no port in url.Host, use default
-			peerAddr = url.Host + ":" + rmtPort
-		}
+		peerAddr = url.Host + ":" + rmtPort
 	}
 
 	httpMethod := http.MethodGet
@@ -113,7 +113,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		return nil
 	}
 
-	var rmtAddr string
+	var remoteIP string
 
 	var tStart, tDnsLk, tTcpHs, tConnd, tFirst, tTlsSt, tTlsHs, tClose time.Time
 
@@ -133,7 +133,6 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		},
 		ConnectDone: func(net, addr string, err error) {
 			tTcpHs = time.Now()
-			rmtAddr = HostNoPort(addr)
 			if err != nil {
 				log.Printf("connect %s: %v", addr, err)
 				tTlsSt = tTcpHs
@@ -141,6 +140,8 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 				tFirst = tTcpHs
 				tConnd = tTcpHs
 				tClose = tTcpHs
+			} else {
+				remoteIP = HostNoPort(addr)
 			}
 		},
 
@@ -201,6 +202,21 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 	}
 	if err != nil {
 		log.Printf("reading response: %v", err)
+		if tDnsLk.IsZero() {
+			tDnsLk = tStart
+		}
+		if tFirst.IsZero() {
+			tFirst = tStart
+		}
+		if tTcpHs.IsZero() {
+			tTcpHs = tDnsLk
+		}
+		if tTlsHs.IsZero() {
+			tTlsHs = tTlsSt
+		}
+		if tConnd.IsZero() {
+			tConnd = tTlsHs
+		}
 	} else {
 		status = resp.StatusCode
 		if status == 200 && IsPingmeshPeer(url.Path) {
@@ -221,7 +237,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		Total:    tClose.Sub(tDnsLk), // request time not including DNS lookup
 		DestUrl:  &urlStr,            // URL that received the request
 		Location: &location,          // SERVER, **NOTE**: different from perftest/FetchURL!
-		Remote:   rmtAddr,            // Server IP from DNS resolution
+		Remote:   remoteIP,           // Server IP from TCP connection resolution
 		RespCode: status,
 		Size:     bytes,
 	}

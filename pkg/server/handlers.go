@@ -178,6 +178,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 	}
 
 	for n, url := range urls {
+		url = strings.Trim(url, " \t")
 		var ip, override string // optional IP override
 
 		if s.Verbose() > 1 {
