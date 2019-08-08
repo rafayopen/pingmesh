@@ -84,22 +84,20 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 
 	urlStr := url.Scheme + "://" + url.Host + url.Path
 
-	peerPort := "443"
+	rmtPort := "443"
 	if url.Scheme == "http" {
-		peerPort = "80"
+		rmtPort = "80"
 	}
 
-	peerAddr := url.Host // may contain a port number, if not must add one
-	pi := portIndex(url.Host)
-	if pi < 0 { // no port, must add one to peerAddr
-		peerAddr += ":" + peerPort
-	}
-
-	if len(rmtIP) > 0 { // override the hostname with a specific IP
+	var peerAddr string // host:port or IP:port
+	if len(rmtIP) > 0 { // IP:port since override specified
+		peerAddr = rmtIP + ":" + rmtPort
+	} else {
 		if pi := portIndex(url.Host); pi > 0 {
-			port := url.Host[pi+1:]
-			peerAddr = rmtIP + ":" + port
-			//			log.Println("override host", url.Host, "with IP[:port]", peerAddr)
+			peerAddr = url.Host
+		} else {
+			// no port in url.Host, use default
+			peerAddr = url.Host + ":" + rmtPort
 		}
 	}
 
@@ -174,7 +172,6 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 			InsecureSkipVerify: true, // Warning: skips CA checks, but ping doesn't care
 		},
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			//			addr = ip + ":" + urlPort // + addr[strings.LastIndex(addr, ":"):]
 			return dialer.DialContext(ctx, network, peerAddr)
 		},
 	}

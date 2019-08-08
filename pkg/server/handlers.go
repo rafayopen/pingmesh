@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -177,13 +178,14 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 	}
 
 	for n, url := range urls {
-		var ip string // optional IP override
+		var ip, override string // optional IP override
 
 		if s.Verbose() > 1 {
 			if len(ips) > n && len(ips[n]) > 0 {
-				ip = " (with IP override " + ips[n] + ")"
+				ip = strings.Trim(ips[n], " \t")
+				override = " (with IP override " + ip + ")"
 			}
-			log.Println("Add ping target", url, ip)
+			//log.Println("Add ping target", url+override)
 		}
 
 		if peer, err := AddPingTarget(url, ip, client.LocUnknown, 0, 10); err != nil {
@@ -196,7 +198,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 				reply += `<p>Unknown error: ` + err.Error()
 			}
 		} else { // err == nil, peer had better != nil
-			reply += `<p>Added a new peer for ` + url + ip + `
+			reply += `<p>Added a new peer for ` + url + override + `
 <p><a href="/v1/peers">Click here</a> for JSON peer list.`
 		}
 	}
