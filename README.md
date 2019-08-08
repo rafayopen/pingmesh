@@ -27,6 +27,24 @@ the [Docker environment](https://docs.docker.com/get-started/).
 
 ## How to Build and Run
 
+## Usage
+
+You can add ping targets via /v1/addpeer, supplying a URL like one of these:
+  * www.google.com -- a bare hostname will be pinged over HTTP
+  * https://www.google.com -- specify the protocol to use HTTPS (TLS/SSL)
+  * https://pingmesh.run.rafay-edge.net/v1/ping -- send requests to the deployed
+    application, wherever pingmesh resolves via DNS
+  * pingmesh.run.rafay-edge.net:8080/v1/ping -- send to your local instance
+    (running on localhost port 8080)
+    * specify localhost by entering "127.0.0.1" in the "IP*" form field
+
+## Adding Peers Peers
+
+
+
+
+
+
 You can build either a standalone image, which can run on your local system and
 others like it, or a docker image, which runs on any docker environment. To get
 started:
