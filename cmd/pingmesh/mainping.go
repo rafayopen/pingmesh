@@ -150,7 +150,7 @@ func main() {
 		if len(parts) > 1 {
 			location = parts[1]
 		}
-		server.AddPingTarget(url, peerIP, location)
+		pm.AddPingTarget(url, peerIP, location)
 	}
 
 	if verbose > 1 {

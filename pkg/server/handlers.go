@@ -197,7 +197,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 		}
 	}
 
-	if peer, err := AddPingTarget(url, ip, client.LocUnknown); err != nil {
+	if peer, err := s.AddPingTarget(url, ip, client.LocUnknown); err != nil {
 		log.Println("error adding peer", peer)
 		if err == PeerAlreadyPresent {
 			reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
@@ -214,7 +214,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 		// Now see if we are supposed to add this peer's peers
 		if addpeers {
 			log.Println("starting thread to addpeers from", peer)
-			peer.ms.wg.Add(1)       // for the new goroutine
+			peer.ms.wg.Add(1)       // for the AddPeers goroutine
 			go peer.AddPeersPeers() // must call Done()
 		}
 	}
@@ -375,5 +375,4 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	////
 	//  Close the meshSrv done channel so the pinger peers will exit.
 	s.CloseDoneChan()
-	s.wg.Done()
 }

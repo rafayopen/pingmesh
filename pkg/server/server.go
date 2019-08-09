@@ -85,7 +85,6 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, nu
 		////
 		// Start server if a listen port has been configured
 		if port > 0 {
-			ms.wg.Add(1)
 			ms.SetupRoutes()
 			go ms.startServer()
 		}
@@ -114,6 +113,9 @@ func (ms *meshSrv) startServer() error {
 	// from an instance that just exited; if so retry a few times below.
 	httpServer = &http.Server{Addr: addr, Handler: nil}
 	err := httpServer.ListenAndServe()
+	if err == http.ErrServerClosed {
+		return nil
+	}
 
 	tries := 0
 	for tries < max {

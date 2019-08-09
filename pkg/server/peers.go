@@ -64,23 +64,6 @@ var (
 )
 
 ////
-//  AddPingTarget adds a ping target at the given url, in location loc.  It
-//  picks up numTests and pingDelay from the pingmesh server instance.
-func AddPingTarget(url, ip, loc string) (*peer, error) {
-	ms := PingmeshServer()
-
-	peer := ms.FindPeer(url, ip)
-	if peer != nil {
-		return peer, PeerAlreadyPresent
-	}
-
-	// Create a new peer -- and increment the server's wait group
-	peer = ms.NewPeer(url, ip, loc)
-	go peer.Ping()
-	return peer, nil
-}
-
-////
 //  Info returns a string with basic peer state
 func (p *peer) Info() string {
 	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.Limit, p.Start)
@@ -141,9 +124,14 @@ func (p *peer) Ping() {
 			*p.PingTotals.DestUrl)
 	}()
 
-	// TODO -- replace pt.FetchURL with a version that obeys the REST API design
-
 	for {
+		if p.ms.DoneChan() == nil {
+			// channel is nil, reading from it will block, return
+			if p.ms.Verbose() > 1 {
+				log.Println("peer.Ping: channel is nil, returning")
+			}
+			return
+		}
 		////
 		// Sleep first, allows risk-free continue from error cases below
 		select {
@@ -153,10 +141,16 @@ func (p *peer) Ping() {
 		case newdelay, more := <-p.ms.DoneChan():
 			if !more {
 				// channel is closed, we are done -- goodbye
+				if p.ms.Verbose() > 1 {
+					log.Println("peer.Ping: channel is closed, returning")
+				}
 				return
 			}
-			// else we got a new delay on this channel
+			// else we got a new delay on this channel (0 is signal to stop)
 			p.Delay = newdelay
+			if p.Delay <= 0 {
+				return
+			}
 			// we did not (finish) our sleep in this case ...
 		}
 
@@ -178,11 +172,10 @@ func (p *peer) Ping() {
 			}
 			continue
 
-		// HTTP 200 OK
-		case ptResult.RespCode < 300:
-			// Take a write lock on this peer before updating values, then
-			// take a read lock on p in order to read/return its result
-			// in handlers.go (i.e., make each peer reentrant, also peers)
+		// HTTP 200 OK and 300 series "OK" status codes
+		case ptResult.RespCode <= 304:
+			// Take a write lock on this peer before updating values
+			// (make each peer read/write reentrant, also []*peers)
 			func() {
 				p.mu.Lock()
 				defer p.mu.Unlock()
@@ -220,6 +213,7 @@ func (p *peer) Ping() {
 			func() {
 				p.mu.Lock()
 				defer p.mu.Unlock()
+				p.Pings++
 				p.Fails++
 			}()
 			log.Println("HTTP error", ptResult.RespCode, "failure", p.Fails, "of", maxfail, "on", p.Url)
@@ -232,7 +226,7 @@ func (p *peer) Ping() {
 			continue
 
 			////
-			// Other HTTP response codes here (error, redirect)
+			// Other HTTP response codes can be coded here (error, redirect)
 			////
 		}
 
@@ -319,6 +313,7 @@ func (p *peer) AddPeersPeers() {
 		log.Println("adding peer", url, ip)
 
 		peer = p.ms.NewPeer(url, ip, p.Location)
+		peer.ms.wg.Add(1) // for the Ping goroutine
 		go peer.Ping()
 	}
 }

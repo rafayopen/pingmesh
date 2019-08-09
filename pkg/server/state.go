@@ -12,15 +12,8 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 
 ////
-//  NewPeer creates a new peer and increments the server's WaitGroup by one
-//  (this needs to happen before invoking the goroutine)
+//  NewPeer creates a new peer object
 func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
-	////
-	//  ONLY create a NewPeer if you are planning to "go peer.Ping" right after!
-	ms.wg.Add(1)
-	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
-	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
-
 	u := client.ParseURL(url)
 	if u == nil {
 		log.Println("NewPeer: cannot parse URL", url)
@@ -48,6 +41,22 @@ func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
 	}()
 
 	return &p
+}
+
+////
+//  AddPingTarget adds a ping target at the given url, in location loc.  It
+//  picks up numTests and pingDelay from the pingmesh server instance.
+func (ms *meshSrv) AddPingTarget(url, ip, loc string) (*peer, error) {
+	peer := ms.FindPeer(url, ip)
+	if peer != nil {
+		return peer, PeerAlreadyPresent
+	}
+
+	// Create a new peer -- and increment the server's wait group
+	peer = ms.NewPeer(url, ip, loc)
+	ms.wg.Add(1) // for the ping goroutine
+	go peer.Ping()
+	return peer, nil
 }
 
 func (ms *meshSrv) FindPeer(url, ip string) *peer {
@@ -122,6 +131,7 @@ func (s *meshSrv) CwFlag() bool {
 }
 
 func (s *meshSrv) Wait() {
+	// TODO: also check done chan for nil?
 	s.wg.Wait()
 }
 
