@@ -1,6 +1,8 @@
 package server
 
 import (
+	"github.com/rafayopen/pingmesh/pkg/client" // ParseURL
+
 	"log"
 	"time"
 )
@@ -19,8 +21,17 @@ func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
 	// wg.Add needs to happen here, not in Ping() due to race condition: if we get
 	// to wg.Wait() before goroutine has gotten scheduled we'll exit prematurely
 
+	u := client.ParseURL(url)
+	if u == nil {
+		log.Println("NewPeer: cannot parse URL", url)
+		return nil
+	}
+
+	host := u.Host
+
 	p := peer{
 		Url:      url,
+		Host:     host,
 		PeerIP:   ip, // may be empty
 		Limit:    ms.numTests,
 		Delay:    ms.pingDelay,
@@ -40,12 +51,20 @@ func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
 }
 
 func (ms *meshSrv) FindPeer(url, ip string) *peer {
+	u := client.ParseURL(url)
+	if u == nil {
+		log.Println("FindPeer: cannot parse URL", url)
+		return nil
+	}
+
+	host := u.Host
+
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	for _, p := range ms.Peers {
 		// It's OK to ping the same URL (host) on multiple IPs
-		if p.Url == url && p.PeerIP == ip {
+		if p.Host == host && p.PeerIP == ip {
 			return p
 		}
 	}
@@ -80,7 +99,7 @@ func (ms *meshSrv) Delete(p *peer) {
 		return
 	case 1:
 		if ms.Verbose() > 0 {
-			log.Println("Deleted pinger for", p.Url)
+			log.Println("Deleted pinger for", p.Url, "on", p.PeerIP, "in", p.Location)
 		}
 	default:
 		if ms.Verbose() > 0 {

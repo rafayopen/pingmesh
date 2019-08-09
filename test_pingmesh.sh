@@ -14,12 +14,13 @@ if [ "$1" = "loc" ] ; then
     wait
     exit 0
 elif [ "$1" = "many" ] ; then
-    $PM -s 8080 -v -d 2 & sleep 1
-    grep '^[a-z]' < bak/peers | while read url ip ; do
+    $PM -s 8080 -v -d 5 "http://localhost:8080/v1/ping" & sleep 1
+    grep '^[a-z]' < /opt/rafay/edges.v1.edges.ips | while read url ip ; do
 	curl -s "http://localhost:8080/v1/addpeer?url=$url&ip=$ip" |
 	    sed -n 's/.*Added a new peer for //p'
 	sleep 1
     done
+    wait
     exit 0
 fi
 

@@ -201,9 +201,11 @@ func fetchRemoteServer(rawurl, ip string) (rm *meshSrv, err error) {
 		return
 	}
 
+	rm = new(meshSrv)
 	err = json.Unmarshal(body, rm)
 	if err != nil {
 		log.Println("fetchRemoteServer: json.Unmarshal:", err)
+		log.Println("body was:", string(body))
 		return
 	}
 

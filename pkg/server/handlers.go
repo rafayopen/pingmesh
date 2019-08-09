@@ -181,7 +181,10 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 	}
 
 	url := strings.Trim(urls[0], " \t")
-
+	addpeers := strings.Index(url, "addpeers=true") > 0
+	if qi := strings.Index(url, "?"); qi > 0 {
+		url = url[:qi] // trim query string from target URL
+	}
 	var ip, override string // optional IP override
 
 	if len(ips) > 0 {
@@ -204,12 +207,12 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 			reply += `<p>Unknown error: ` + err.Error()
 		}
 	} else { // err == nil, peer had better != nil
+		log.Println("added peer", url+override)
 		reply += `<p>Added a new peer for ` + url + override + `
 <p><a href="/v1/peers">Click here</a> for JSON peer list.`
 		////
 		// Now see if we are supposed to add this peer's peers
-		addpeers := qs["addpeers"]
-		if len(addpeers) > 0 && addpeers[0] == "true" {
+		if addpeers {
 			log.Println("starting thread to addpeers from", peer)
 			peer.ms.wg.Add(1)       // for the new goroutine
 			go peer.AddPeersPeers() // must call Done()

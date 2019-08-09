@@ -1,0 +1,67 @@
+{
+  "Start": "2019-08-09T01:12:22.752013206Z",
+  "SrvLoc": "Los Angeles,US",
+  "SrvHost": "pingmesh.run.rafay-edge.net",
+  "SrvPort": 443,
+  "SrvIPs": [
+    "147.75.58.157",
+    "147.75.58.231"
+  ],
+  "Peers": [
+    {
+      "Url": "https://pingmesh.run.rafay-edge.net/v1/ping",
+      "Limit": 0,
+      "Delay": 10,
+      "Location": "Chicago,US",
+      "PeerIP": "147.75.58.231",
+      "Pings": 280,
+      "Fails": 0,
+      "Start": "2019-08-09T01:30:27.029820568Z",
+      "FirstPing": "2019-08-09T01:30:37.643713275Z",
+      "LatestPing": "2019-08-09T02:18:14.383214156Z",
+      "PingTotals": {
+        "Start": "2019-08-09T01:30:37.040125693Z",
+        "DnsLk": 0,
+        "TcpHs": 14196502058,
+        "TlsHs": 34636916652,
+        "Reply": 19129832442,
+        "Close": 35299015,
+        "Total": 68025194119,
+        "DestUrl": "https://pingmesh.run.rafay-edge.net/v1/ping",
+        "Location": "Chicago,US",
+        "Remote": "147.75.58.231",
+        "RespCode": 200,
+        "Size": 32480
+      }
+    },
+    {
+      "Url": "https://pingmesh.run.rafay-edge.net/v1/ping",
+      "Limit": 0,
+      "Delay": 10,
+      "Location": "Seattle,US",
+      "PeerIP": "38.102.178.51",
+      "Pings": 274,
+      "Fails": 0,
+      "Start": "2019-08-09T01:30:53.566910336Z",
+      "FirstPing": "2019-08-09T01:31:04.209179462Z",
+      "LatestPing": "2019-08-09T02:18:09.399191804Z",
+      "PingTotals": {
+        "Start": "2019-08-09T01:31:03.522267797Z",
+        "DnsLk": 0,
+        "TcpHs": 3494339059,
+        "TlsHs": 74809883946,
+        "Reply": 17170222591,
+        "Close": 35281173,
+        "Total": 95613696653,
+        "DestUrl": "https://pingmesh.run.rafay-edge.net/v1/ping",
+        "Location": "Seattle,US",
+        "Remote": "38.102.178.51",
+        "RespCode": 200,
+        "Size": 31784
+      }
+    }
+  ],
+  "Requests": 291,
+  "NumActive": 2,
+  "NumDeleted": 0
+}

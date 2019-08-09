@@ -28,6 +28,7 @@ import (
 //  currently active.  Members must be exported for JSON to dump them.
 type peer struct {
 	Url      string // endpoint to ping
+	Host     string // hostname from Url
 	Limit    int    // number of pings before exiting
 	Delay    int    // delay between pings
 	Location string // location of this peer
@@ -297,26 +298,29 @@ func (p *peer) AddPeersPeers() {
 		return // fetchRemoteServer reported to log(stderr) already
 	}
 
-	log.Println("Got a remote server's state:")
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	// No need to take a lock on the mutex
-	if err := enc.Encode(rm); err != nil {
-		log.Println("Error converting remote state to json:", err)
+	if p.ms.Verbose() > 2 {
+		log.Println("Got a remote server's state:")
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		// No need to take a lock on the mutex
+		if err := enc.Encode(rm); err != nil {
+			log.Println("Error converting remote state to json:", err)
+		}
 	}
 
-	/*
-		newpeer := ms.FindPeer(url, ip)
-		if newpeer != nil {
+	for _, rmp := range rm.Peers {
+		url := rmp.Url
+		ip := rmp.PeerIP
+		peer := p.ms.FindPeer(url, ip)
+		if peer != nil {
 			log.Println("peer", url, ip, "-- PeerAlreadyPresent")
-		} else {
-			log.Println("peer", url, ip, "-- does not exist, adding")
+			continue
 		}
+		log.Println("adding peer", url, ip)
 
-		peer = ms.NewPeer(url, ip, loc, numTests, pingDelay)
+		peer = p.ms.NewPeer(url, ip, p.Location)
 		go peer.Ping()
-		return peer, nil
-	*/
+	}
 }
 
 ////
