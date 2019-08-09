@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -94,6 +95,47 @@ func main() {
 		}
 	}
 
+	hostEnv := os.Getenv("PINGMESH_HOSTNAME")
+	if len(myHost) == 0 {
+		myHost = hostEnv // if also be empty no DNS lookup is done
+	}
+
+	wasFlagPassed := func(fn string) bool {
+		found := false
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == fn {
+				found = true
+			}
+		})
+		return found
+	}
+
+	if delayEnv, found := os.LookupEnv("PINGMESH_DELAY"); found {
+		delay, err := strconv.Atoi(delayEnv)
+		if err != nil || delay < 1 {
+			log.Println("Warning: PINGMESH_DELAY environment is", delayEnv, "-- value must be int > 0.  Using -d", pingDelay, "instead")
+		} else {
+			if wasFlagPassed("d") {
+				log.Println("Note: PINGMESH_DELAY from environment,", delay, "overrides -d", pingDelay)
+			}
+			pingDelay = delay
+		}
+	}
+
+	if numEnv, found := os.LookupEnv("PINGMESH_LIMIT"); found {
+		num, err := strconv.Atoi(numEnv)
+		if err != nil || num < 1 {
+			log.Println("Warning: PINGMESH_LIMIT from environment is", numEnv, "-- value must be int > 0.  Using -n", numTests, "instead")
+		} else {
+			if wasFlagPassed("n") {
+				log.Println("Note: PINGMESH_LIMIT from environment,", num, "overrides -n", numTests)
+			}
+			numTests = num
+		}
+	}
+
+	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, numTests, pingDelay, verbose)
+
 	endpoints := flag.Args() // any remaining arguments are the endpoints to ping
 	if len(endpoints) == 0 {
 		if servePort == 0 {
@@ -101,14 +143,8 @@ func main() {
 			return
 		}
 		fmt.Println("NOTE: not starting any pings, just serving")
+		pm.Add() // this prevents server from exiting when the (zero) goroutines are done
 	}
-
-	hostEnv := os.Getenv("PINGMESH_HOSTNAME")
-	if len(myHost) == 0 {
-		myHost = hostEnv // if also be empty no DNS lookup is done
-	}
-
-	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, numTests, pingDelay, verbose)
 
 	if pm == nil {
 		log.Println("error starting server")
@@ -125,6 +161,9 @@ func main() {
 			if pm.DoneChan() != nil {
 				fmt.Println("\nreceived", sig, "signal, terminating")
 				pm.CloseDoneChan()
+				if len(endpoints) == 0 {
+					pm.Done()
+				}
 			} else {
 				// something went wrong (should have exited already)
 				fmt.Println("\nreceived", sig, "signal, hard exit")
@@ -153,16 +192,20 @@ func main() {
 		pm.AddPingTarget(url, peerIP, location)
 	}
 
-	if verbose > 1 {
+	if verbose > 2 {
 		log.Println("waiting for goroutines to exit")
 	}
 
 	pm.Wait()
-	log.Println("all goroutines exited, closing server")
+	if verbose > 0 {
+		log.Println("all goroutines exited, closing server")
+	}
 
 	if servePort > 0 {
 		pm.Shutdown()
-		log.Println("server shutdown, returning from main")
+		if verbose > 0 {
+			log.Println("server shutdown, returning from main")
+		}
 	}
 
 	return
