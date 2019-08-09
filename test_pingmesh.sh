@@ -14,16 +14,12 @@ if [ "$1" = "loc" ] ; then
     wait
     exit 0
 elif [ "$1" = "many" ] ; then
-    $PM -s 8080 -v & sleep 1
+    $PM -s 8080 -v -d 2 & sleep 1
     grep '^[a-z]' < bak/peers | while read url ip ; do
 	curl -s "http://localhost:8080/v1/addpeer?url=$url&ip=$ip" |
 	    sed -n 's/.*Added a new peer for //p'
 	sleep 1
     done
-    echo ; echo "Type RETURN to exit the tests" ; echo
-    read quitme
-    curl -s "http://localhost:8080/v1/quit" > /tmp/quit.out
-    sleep 1
     exit 0
 fi
 

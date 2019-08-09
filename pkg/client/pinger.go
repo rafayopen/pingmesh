@@ -73,6 +73,27 @@ func HostNoPort(addr string) string {
 	return addr
 }
 
+func MakePeerAddr(scheme, host, rmtIP string) (newhost, peerAddr string) {
+	rmtPort := "443"
+	if scheme == "http" {
+		rmtPort = "80"
+	}
+	if pi := portIndex(host); pi > 0 {
+		// a port was specified, use it even if IP override
+		rmtPort = host[pi+1:]
+		newhost = host[:pi]
+	} else {
+		newhost = host
+	}
+
+	if len(rmtIP) > 0 { // IP:port since override specified
+		peerAddr = rmtIP + ":" + rmtPort
+	} else {
+		peerAddr = newhost + ":" + rmtPort
+	}
+	return
+}
+
 // FetchURL makes an HTTP request to the given URL, reads and discards the response
 // body, and returns a PingTimes object with detailed timing information from the fetch.
 // NOTE: the location handling is different from perftest!  The caller does
@@ -88,22 +109,8 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 
 	urlStr := url.Scheme + "://" + url.Host + url.Path
 
-	rmtPort := "443"
-	if url.Scheme == "http" {
-		rmtPort = "80"
-	}
-	if pi := portIndex(url.Host); pi > 0 {
-		// a port was specified, use it even if IP override
-		rmtPort = url.Host[pi+1:]
-		url.Host = url.Host[:pi]
-	}
-
-	var peerAddr string // host:port or IP:port
-	if len(rmtIP) > 0 { // IP:port since override specified
-		peerAddr = rmtIP + ":" + rmtPort
-	} else {
-		peerAddr = url.Host + ":" + rmtPort
-	}
+	var peerAddr string
+	url.Host, peerAddr = MakePeerAddr(url.Scheme, url.Host, rmtIP)
 
 	httpMethod := http.MethodGet
 

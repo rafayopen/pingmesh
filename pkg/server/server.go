@@ -4,7 +4,11 @@ package server
 import (
 	"github.com/rafayopen/pingmesh/pkg/client" // fetchurl
 
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -35,6 +39,9 @@ type meshSrv struct {
 	NumActive  int     // count of active peers
 	NumDeleted int     // count of deleted peers
 
+	numTests  int // from main() command line args or env vars
+	pingDelay int // from main() command line args or env vars
+
 	wg      *sync.WaitGroup // ping and server threads share this wg
 	mu      sync.Mutex      // make meshSrv reentrant (protect peers)
 	done    chan int        // used to signal when threads should exit
@@ -45,15 +52,16 @@ type meshSrv struct {
 }
 
 var (
-	srvServer *meshSrv  // srvServer is a singleton
-	once      sync.Once // initialize it only once
+	srvServer  *meshSrv  // srvServer is a singleton
+	once       sync.Once // initialize it only once
+	httpServer *http.Server
 )
 
 ////
 //  NewPingmeshServer creates a new server instance (only once), assigns its
 //  values from the parameters, sets up HTTP routes, and starts a web server
 //  on the local host:port if configured.
-func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, verbose int) *meshSrv {
+func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, numTests, pingDelay, verbose int) *meshSrv {
 	if report == 0 {
 		report = port
 	}
@@ -67,6 +75,8 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, ve
 			SrvPort:    report,
 			listenPort: port,
 			cwFlag:     cwFlag,
+			numTests:   numTests,
+			pingDelay:  pingDelay,
 			verbose:    verbose,
 			wg:         new(sync.WaitGroup), // used by server and ping peers, controls exit from main()
 			done:       make(chan int),      // signals goroutines to exit after signal caught in main()
@@ -76,10 +86,10 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, ve
 		// Start server if a listen port has been configured
 		if port > 0 {
 			ms.wg.Add(1)
+			ms.SetupRoutes()
 			go ms.startServer()
 		}
 
-		ms.SetupRoutes()
 		srvServer = ms
 	})
 	return srvServer
@@ -102,7 +112,8 @@ func (ms *meshSrv) startServer() error {
 
 	// The ListenAndServe call should not return.  If it does the address may be in use
 	// from an instance that just exited; if so retry a few times below.
-	err := http.ListenAndServe(addr, nil)
+	httpServer = &http.Server{Addr: addr, Handler: nil}
+	err := httpServer.ListenAndServe()
 
 	tries := 0
 	for tries < max {
@@ -111,8 +122,90 @@ func (ms *meshSrv) startServer() error {
 		log.Println(err, "-- sleep number", tries)
 		time.Sleep(time.Duration(tries) * time.Second)
 		// now try again ... it may take a while for a previous instance to exit
-		err = http.ListenAndServe(addr, nil)
+		err = httpServer.ListenAndServe()
+		if err == http.ErrServerClosed {
+			return nil
+		}
 	}
 
 	return err
+}
+
+func (ms *meshSrv) Shutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Println("server.Shutdown:", err)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+//  Internal fetch methods
+////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	getPeersUrl = "/v1/peers"
+)
+
+func fetchRemoteServer(rawurl, ip string) (rm *meshSrv, err error) {
+	url := client.ParseURL(rawurl)
+	if url == nil {
+		log.Println("cannot parse URL", rawurl)
+		return nil, errors.New("fetchRemoteServer: Bad URL")
+	}
+
+	host, peerAddr := client.MakePeerAddr(url.Scheme, url.Host, ip)
+	urlStr := url.Scheme + "://" + host + url.Path
+
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
+
+	tr := &http.Transport{
+		MaxIdleConns:          100,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, peerAddr)
+		},
+	}
+
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   10 * time.Second,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
+	if err != nil {
+		log.Println("fetchRemoteServer: NewRequest", err)
+		return
+	}
+
+	req.Header.Set("User-Agent", "pingmesh-client")
+	resp, err := client.Do(req)
+	if resp != nil {
+		// Close body if non-nil, whatever err says (even if err non-nil)
+		defer resp.Body.Close() // after we read the resonse body
+	}
+	if err != nil {
+		log.Println("fetchRemoteServer: client.request:", err)
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("fetchRemoteServer: ReadAll body:", err)
+		return
+	}
+
+	err = json.Unmarshal(body, rm)
+	if err != nil {
+		log.Println("fetchRemoteServer: json.Unmarshal:", err)
+		return
+	}
+
+	return // rm should be initialized by now
 }

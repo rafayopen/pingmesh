@@ -108,7 +108,7 @@ func main() {
 		myHost = hostEnv // if also be empty no DNS lookup is done
 	}
 
-	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, verbose)
+	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, numTests, pingDelay, verbose)
 
 	if pm == nil {
 		log.Println("error starting server")
@@ -150,7 +150,7 @@ func main() {
 		if len(parts) > 1 {
 			location = parts[1]
 		}
-		server.AddPingTarget(url, peerIP, location, numTests, pingDelay)
+		server.AddPingTarget(url, peerIP, location)
 	}
 
 	if verbose > 1 {
@@ -158,7 +158,12 @@ func main() {
 	}
 
 	pm.Wait()
-	log.Println("all goroutines exited, returning from main")
+	log.Println("all goroutines exited, closing server")
+
+	if servePort > 0 {
+		pm.Shutdown()
+		log.Println("server shutdown, returning from main")
+	}
 
 	return
 }

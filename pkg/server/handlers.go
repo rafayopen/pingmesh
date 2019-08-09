@@ -177,21 +177,24 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 		return
 	}
 	if len(urls) > 1 {
-		reply += `<p><b>Warning: Only one URL accepted</b>, but ` + len(urls) + `supplied</p>\n`
+		reply += `<p><b>Warning: Only one URL accepted</b>, but ` + string(len(urls)) + `supplied</p>\n`
 	}
 
-	url = strings.Trim(url[0], " \t")
+	url := strings.Trim(urls[0], " \t")
+
 	var ip, override string // optional IP override
 
 	if len(ips) > 0 {
 		ip = strings.Trim(ips[0], " \t")
-		override = " (with IP override " + ip + ")"
+		if len(ip) > 0 {
+			override = " (with IP override " + ip + ")"
+		}
 		if len(ips) > 1 {
-			reply += `<p><b>Warning: Only one IP override accepted</b>, but ` + len(ips) + `supplied</p>\n`
+			reply += `<p><b>Warning: Only one IP override accepted</b>, but ` + string(len(ips)) + `supplied</p>\n`
 		}
 	}
 
-	if peer, err := AddPingTarget(url, ip, client.LocUnknown, 0, 10); err != nil {
+	if peer, err := AddPingTarget(url, ip, client.LocUnknown); err != nil {
 		log.Println("error adding peer", peer)
 		if err == PeerAlreadyPresent {
 			reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
@@ -206,6 +209,11 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 		////
 		// Now see if we are supposed to add this peer's peers
 		addpeers := qs["addpeers"]
+		if len(addpeers) > 0 && addpeers[0] == "true" {
+			log.Println("starting thread to addpeers from", peer)
+			peer.ms.wg.Add(1)       // for the new goroutine
+			go peer.AddPeersPeers() // must call Done()
+		}
 	}
 
 	reply += htmlTrailer

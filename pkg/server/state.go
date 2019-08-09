@@ -12,7 +12,7 @@ import (
 ////
 //  NewPeer creates a new peer and increments the server's WaitGroup by one
 //  (this needs to happen before invoking the goroutine)
-func (ms *meshSrv) NewPeer(url, ip, location string, limit, delay int) *peer {
+func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
 	////
 	//  ONLY create a NewPeer if you are planning to "go peer.Ping" right after!
 	ms.wg.Add(1)
@@ -22,8 +22,8 @@ func (ms *meshSrv) NewPeer(url, ip, location string, limit, delay int) *peer {
 	p := peer{
 		Url:      url,
 		PeerIP:   ip, // may be empty
-		Limit:    limit,
-		Delay:    delay,
+		Limit:    ms.numTests,
+		Delay:    ms.pingDelay,
 		Location: location,
 		ms:       ms,
 		Start:    time.Now(),

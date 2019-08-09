@@ -6,8 +6,11 @@ import (
 	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes but not fetchurl
 
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	//"io"
 	//	"io/ioutil"
 	"log"
@@ -61,8 +64,8 @@ var (
 
 ////
 //  AddPingTarget adds a ping target at the given url, in location loc.  It
-//  will ping numTests times with a pingDelay between each test.
-func AddPingTarget(url, ip, loc string, numTests, pingDelay int) (*peer, error) {
+//  picks up numTests and pingDelay from the pingmesh server instance.
+func AddPingTarget(url, ip, loc string) (*peer, error) {
 	ms := PingmeshServer()
 
 	peer := ms.FindPeer(url, ip)
@@ -71,7 +74,7 @@ func AddPingTarget(url, ip, loc string, numTests, pingDelay int) (*peer, error) 
 	}
 
 	// Create a new peer -- and increment the server's wait group
-	peer = ms.NewPeer(url, ip, loc, numTests, pingDelay)
+	peer = ms.NewPeer(url, ip, loc)
 	go peer.Ping()
 	return peer, nil
 }
@@ -279,18 +282,41 @@ func (p *peer) Ping() {
 //  The peer's peers will be looked up in the local list, and any that are
 //  not present will be added to the list with Ping() goroutines started.
 func (p *peer) AddPeersPeers() {
-	ms := PingmeshServer()
+	defer p.ms.Done() // it's a goroutine
 
-	newpeer := ms.FindPeer(url, ip)
-	if newpeer != nil {
-		log.Println("peer", url, ip, "-- PeerAlreadyPresent")
-	} else {
-		log.Println("peer", url, ip, "-- does not exist, adding")
+	if strings.Index(p.Url, "/v1/peers") < 0 {
+		log.Println("Error: you can only addpeers with a /v1/peers request")
+		return
 	}
 
-	peer = ms.NewPeer(url, ip, loc, numTests, pingDelay)
-	go peer.Ping()
-	return peer, nil
+	////
+	// Get remote meshping server publich state.  This may take a while!
+	// That's why this is a goroutine...
+	rm, err := fetchRemoteServer(p.Url, p.PeerIP)
+	if err != nil {
+		return // fetchRemoteServer reported to log(stderr) already
+	}
+
+	log.Println("Got a remote server's state:")
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	// No need to take a lock on the mutex
+	if err := enc.Encode(rm); err != nil {
+		log.Println("Error converting remote state to json:", err)
+	}
+
+	/*
+		newpeer := ms.FindPeer(url, ip)
+		if newpeer != nil {
+			log.Println("peer", url, ip, "-- PeerAlreadyPresent")
+		} else {
+			log.Println("peer", url, ip, "-- does not exist, adding")
+		}
+
+		peer = ms.NewPeer(url, ip, loc, numTests, pingDelay)
+		go peer.Ping()
+		return peer, nil
+	*/
 }
 
 ////
