@@ -199,9 +199,9 @@ func (p *peer) Ping() {
 				if p.Location != *ptResult.Location {
 					if p.ms.Verbose() > 1 {
 						if p.Location == client.LocUnknown {
-							log.Println("Initialize location to", *ptResult.Location)
+							log.Println("Initialize remote location to", *ptResult.Location)
 						} else {
-							log.Println("Location changed:", p.Location, "is now", *ptResult.Location)
+							log.Println("Remote peer's location changed:", p.Location, "is now", *ptResult.Location)
 						}
 					}
 					p.Location = *ptResult.Location
@@ -213,7 +213,6 @@ func (p *peer) Ping() {
 			func() {
 				p.mu.Lock()
 				defer p.mu.Unlock()
-				p.Pings++
 				p.Fails++
 			}()
 			log.Println("HTTP error", ptResult.RespCode, "failure", p.Fails, "of", maxfail, "on", p.Url)
@@ -313,7 +312,7 @@ func (p *peer) AddPeersPeers() {
 		log.Println("adding peer", url, ip)
 
 		peer = p.ms.NewPeer(url, ip, p.Location)
-		peer.ms.wg.Add(1) // for the Ping goroutine
+		peer.ms.Add() // for the Ping goroutine
 		go peer.Ping()
 	}
 }

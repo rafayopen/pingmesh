@@ -107,7 +107,9 @@ func (ms *meshSrv) startServer() error {
 	max := 5 // 5 tries = 15 seconds (linear backoff -- 5th triangular number)
 
 	addr := fmt.Sprintf(":%d", ms.listenPort)
-	log.Println("starting meshSrv listening on port", ms.listenPort, "reporting on", ms.SrvPort)
+	if ms.verbose > 1 {
+		log.Println("starting meshSrv listening on port", ms.listenPort, "reporting on", ms.SrvPort)
+	}
 
 	// The ListenAndServe call should not return.  If it does the address may be in use
 	// from an instance that just exited; if so retry a few times below.

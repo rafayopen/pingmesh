@@ -13,16 +13,6 @@ if [ "$1" = "loc" ] ; then
     $PM -s 8080 -v -n ${DEL} "http://localhost:8081/v1/ping" "http://127.0.0.1:8081/v1/ping" &
     wait
     exit 0
-elif [ "$1" = "many" ] ; then
-    $PM -s 8080 -v -d 5 "http://localhost:8080/v1/ping" & sleep 1
-    trap '{ echo SIGINT, waiting for pingmesh; wait; }' INT
-    grep '^[a-z]' < /opt/rafay/edges.v1.edges.ips | while read url ip ; do
-	curl -s "http://localhost:8080/v1/addpeer?url=$url&ip=$ip" |
-	    sed -n 's/.*Added a new peer for //p'
-	sleep 1
-    done
-    wait
-    exit 0
 fi
 
 echo try one ... run for one minute on 8080

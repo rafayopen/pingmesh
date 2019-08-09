@@ -39,10 +39,10 @@ func (s *meshSrv) SetupRoutes() {
 		{"/", "", s.RootHandler},
 		{"/v1", "", s.RootHandler},
 		{"/v1/env", "", s.envHandler},
-		{"/v1/metrics", "get memory statistics", s.MetricsHandler},
-		{"/v1/peers", "get or update list of peers", s.PeersHandler},
 		{"/v1/ping", "get a ping response", s.PingHandler},
+		{"/v1/peers", "get a list of peers", s.PeersHandler},
 		{"/v1/addpeer", "add a ping peer (takes ip, port, hostname)", s.AddPingHandler},
+		{"/v1/metrics", "get memory statistics", s.MetricsHandler},
 		{"/v1/quit", "shut down this pinger", s.QuitHandler},
 	}
 	for _, route := range s.routes {
@@ -181,7 +181,10 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 	}
 
 	url := strings.Trim(urls[0], " \t")
-	addpeers := strings.Index(url, "addpeers=true") > 0
+	var addpeers bool
+	if ap := strings.Index(url, "addpeers"); ap > 0 {
+		addpeers = strings.Index(url[ap:], "true") > 0
+	}
 	if qi := strings.Index(url, "?"); qi > 0 {
 		url = url[:qi] // trim query string from target URL
 	}
@@ -214,7 +217,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 		// Now see if we are supposed to add this peer's peers
 		if addpeers {
 			log.Println("starting thread to addpeers from", peer)
-			peer.ms.wg.Add(1)       // for the AddPeers goroutine
+			peer.ms.Add()           // for the AddPeers goroutine
 			go peer.AddPeersPeers() // must call Done()
 		}
 	}

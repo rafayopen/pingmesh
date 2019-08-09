@@ -54,7 +54,7 @@ func (ms *meshSrv) AddPingTarget(url, ip, loc string) (*peer, error) {
 
 	// Create a new peer -- and increment the server's wait group
 	peer = ms.NewPeer(url, ip, loc)
-	ms.wg.Add(1) // for the ping goroutine
+	ms.Add() // for the ping goroutine
 	go peer.Ping()
 	return peer, nil
 }
@@ -107,11 +107,11 @@ func (ms *meshSrv) Delete(p *peer) {
 		}
 		return
 	case 1:
-		if ms.Verbose() > 0 {
+		if ms.Verbose() > 1 {
 			log.Println("Deleted pinger for", p.Url, "on", p.PeerIP, "in", p.Location)
 		}
 	default:
-		if ms.Verbose() > 0 {
+		if ms.Verbose() > 1 {
 			log.Println("Note: deleted", found, "pingers for", p.Url, "on", p.PeerIP)
 		}
 	}
@@ -128,6 +128,10 @@ func (s *meshSrv) SrvLocation() string {
 
 func (s *meshSrv) CwFlag() bool {
 	return s.cwFlag
+}
+
+func (s *meshSrv) Add() {
+	s.wg.Add(1)
 }
 
 func (s *meshSrv) Wait() {
