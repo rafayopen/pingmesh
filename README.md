@@ -1,49 +1,75 @@
 # Rafay Pingmesh
 
-This application uses [Rafay perftest](https://github.com/rafayopen/perftest) to
+This application builds on [Rafay perftest](https://github.com/rafayopen/perftest) to
 measure and report the network performance and availability of a set of peers
 set up in a mesh, all testing one another. The peers can publish measurements to
-CloudWatch where you may notice some unusual changes in network behavior based
-on direction and by time of day.
+CloudWatch, as well as logging to stdout. Looking at the data you may notice
+some unusual changes in network behavior based on direction and by time of day.
+Tracking this data can help inform container placement or application routing
+decisions.
 
-It depends upon open source `perftest` and AWS SDK components, which are pulled
-down automatically if you have modern go (1.12) with support for go modules.
+It `pingmesh` uses code from the open source `perftest` application, plus AWS
+SDK components. It's based on golang 1.12 with modules, so dependencies will be
+pulled down automatically if you also have a modern version go.
 
 ## Description
 
-The mesh requires two or more `pingmesh` applications that know about and can
-connect to each other via HTTPS over TCP/IP. They can run within private IP
-address space as long as they have internal connectivity. The app needs public
-IP connectivity to publish to CloudWatch, but you could of course alter that.
+The mesh requires two or more `pingmesh` applications that can connect to each
+other via HTTP(S) over TCP/IP. They can run within private IP address space as
+long as they have internal connectivity. You can identify them with either host
+names or IP addresses as shown in examples below.
+
+The app needs public IP connectivity to publish metrics to CloudWatch, if you
+want to use that to view metrics. Of course you can alter the code to publish
+anywhere you like...
 
 ## Prerequisites
 
-Pingmesh is written in [golang](https://golang.org/doc/), you can install it
-using instructions [here](https://golang.org/doc/install). 
+Pingmesh is written in [golang](https://golang.org/doc/), which you can install
+using the instructions [here](https://golang.org/doc/install).
 
-If you don't want to build from source you can run a pre-built version I have
+If you don't want to build from go source you can run a pre-built version I have
 published to DockerHub (see "Run from Docker" below). In this case you will need
 the [Docker environment](https://docs.docker.com/get-started/).
 
-## How to Build and Run
-
 ## Usage
 
-You can add ping targets via /v1/addpeer, supplying a URL like one of these:
-  * www.google.com -- a bare hostname will be pinged over HTTP
-  * https://www.google.com -- specify the protocol to use HTTPS (TLS/SSL)
-  * https://pingmesh.run.rafay-edge.net/v1/ping -- send requests to the deployed
-    application, wherever pingmesh resolves via DNS
-  * pingmesh.run.rafay-edge.net:8080/v1/ping -- send to your local instance
-    (running on localhost port 8080)
-    * specify localhost by entering "127.0.0.1" in the "IP*" form field
+The command's usage string below briefly explains the options. The examples
+later show them in action.
 
-## Adding Peers Peers
+    Usage: cmd/pingmesh/pingmesh [flags] endpoints...
+    endpoints: zero or more hostnames or IP addresses, they will be targets
+    of pinger client requests.  Repeats the request every $delay seconds.
+    If a port selected (-s servePort) then start a web server on that port.
+    If a pinger client fails enough times the process exits with an error.
+    You can interrupt it with ^C (SIGINT) or SIGTERM.
+
+    Command line flags:
+      -H string
+        	My hostname (should resolve to accessible IPs)
+      -I string
+        	remote peer IP address override
+      -L string
+        	HTTP client's location to report
+      -c	publish metrics to CloudWatch
+      -d int
+        	delay in seconds between ping requests (default 10)
+      -n int
+        	number of tests to each endpoint (default 0 runs until interrupted)
+      -q	be less verbose
+      -r int
+        	server port to report as SrvPort (Rafay translates ports in edge)
+      -s int
+        	server listen port; default zero means don't run a server
+      -v	be more verbose
+
+In addition, some options can be controlled via environment variables. This
+makes it easier to deploy on the Rafay distributed computing platform, and
+likely on other similar platforms.
 
 
 
-
-
+## How to Build and Run
 
 You can build either a standalone image, which can run on your local system and
 others like it, or a docker image, which runs on any docker environment. To get
@@ -54,83 +80,92 @@ started:
     run the local instance with some default parameters so you an try it out.
   * Use `make docker` to build a docker image, and `make push` to push the
     container to DockerHub using credentials from your environment.
-  
+
 Once you've built the app you can run it either standalone or as a docker. It's
 most useful if you have multiple instances that know about each other, so find a
 couple of systems, perhaps running in Kubernetes clusters. You can also run an
-asymmetric test, which is basically just `perftest`.
+asymmetric test, which is basically just `perftest`. See the perftest page
+linked above for details of the output format.
 
-**Standalone**: To run a test from the command line try something like the
-following after `make standalone` from the `pingmesh` base directory. It will
-listen on a local port in one thread and ping itself from another thread.
-Terminate the application with control-c (interrupt) from the terminal.
+# Use Case Examples #
 
-    $ cmd/pingmesh/pingmesh -s 8080 -d 5 http://localhost:8080/v1/ping
-    2019/07/29 09:48:28 starting server on port 8080
-    2019/07/29 09:48:28 ping http://localhost:8080/v1/ping
-    1564408108	2.825	1.608	0.000	0.414	0.073	2.179	200	116	192.168.1.10	[::1]	http://localhost:8080/v1/ping
-    1564408113	1.280	0.468	0.000	0.433	0.129	1.090	200	116	192.168.1.10	[::1]	http://localhost:8080/v1/ping
-    1564408118	1.264	0.458	0.000	0.412	0.107	1.034	200	116	192.168.1.10	[::1]	http://localhost:8080/v1/ping
-    1564408123	1.758	0.450	0.000	0.426	0.107	1.065	200	116	192.168.1.10	[::1]	http://localhost:8080/v1/ping
-      C-c 
-    received interrupt signal, terminating
-    
-    Recorded 4 samples in 16s, average values:
-    # timestamp	DNS	TCP	TLS	First	LastB	Total	HTTP	Size	From_Location	Remote_Addr	proto://uri
-    4 16s   	1.782	0.746	0.000	0.421	0.104	1.342		116		http://localhost:8080/v1/ping
-    
-    2019/07/29 09:48:44 all goroutines exited, returning from main
-
-    
-Each line has an epoch timestamp when the ping started, and the time in
-milliseconds measured for the following actions, from `perftest`:
-  * DNS: how long to look up the IP address(es) for the hostname
-  * TCP: how long the TCP three-way handshake took to set up the connection
-  * TLS: how long the SSL/TLS handshake took to establish a secure channel
-  * First: how long until the first byte of the reply arrived (HTTP response headers)
-  * LastB: how long until the last byte of the reply arrived (HTTP content body)
-  * Total: response time of the application, from start of TCP connection until last byte
-  * HTTP: response code returned from the server; 500 indicates a failure to connect
-  * Size: response size in content bytes received from the upstream (response body, not headers)
-  * From_Location: where you said the test was running from (REP_LOCATION environment variable)
-  * Remote_Addr: the IP address hit by the test (may change over time, based upon DNS result)
-  * proto://uri: the request URL (protocol and URI requested)
-
-The final section provides the count of samples, the total time, and averages
-for the above values. If you test to multiple endpoints you'll see multiple
-sections as each completes.
-
-**Docker**: To run the containerized app, use `gmake run` from the command line,
-which will build the docker image (if needed) and run it out of the local docker
-repo with default arguments. It will run in asymmetric mode but you can connect
-to it from another system as follows
-
-<!-- TODO: describe example how to connect to local instance from command line -->
-
-If you want to push it to your DockerHub repo, you can `gmake push`.  This
-requires the following environment variables:
+First run one instance of `pingmesh` on your local laptop or a server, either as
+a docker or standalone. The example shows running from a local executable while
+you are in the base directory of pingmesh. I like the -v flag for verbose output
+while I'm testing so you'll see that in most of my tests.
 
 ``` shell
-export DOCKER_USER="your docker username"
-export DOCKER_EMAIL="the email address you registered with DockerHub"
+make standalone
+cmd/pingmesh/pingmesh -v -s 8080 -n=5 -d=2 "http://localhost:8080/v1/ping"
 ```
 
-You will need to login to DockerHub to establish credentials:
+The above runs a server listening on port 8080 and pings itself five times, very
+much like a `perftest` use case. You can add multiple hostnames, for example add
+"www.google.com" to the end of the above and see what happens.
+
+## Exercising the Server ##
+
+Let's look at the server control options. First, fire up a bare server instance.
 
 ``` shell
-docker login --username=${DOCKER_USER} --email=${DOCKER_EMAIL}
+make standalone
+cmd/pingmesh/pingmesh -v -s 8080 -n=5 -d=2
 ```
 
-## Run from Docker
+The server is listening for requests via a web interface (rudimentary API). Here
+are the requests you can make and what you should expect to see. You can make
+these API requests with a web browser, with the `curl` utility, or from code if
+you wish (like we do `pkg/server/server.go:fetchRemoteServer` to invoke our own
+API to fetch a peer's peers).
 
-If you don't want to build your own local copy, but you have docker installed,
-you can run a pre-built version from there using a command line similar to this:
+Start with a web browser. Enter the address `localhost:8080/v1/` and hit RETURN.
 
-<!-- Validate / update command line -->
-``` shell
-docker run rafaysystems/pingmesh:v1 -n 5 -d 1 https://www.google.com/
-```
+**The Base Page** /v1 has links to the other interesting application pages:
+  * get a ping response -- /v1/ping -- returns a short page with location in HTML
+  * get a list of peers -- /v1/peers -- the endpoints that are being monitored
+  * add a ping peer -- /v1/addpeer -- adds a peer to the monitored list
+  * get memory statistics -- /v1/memstats -- see some stats about this server
+  * shut down this pinger -- /v1/quit -- "does what it says on the tin"
 
+The most interesting are `peers` and `addpeer`. When you first run the server
+(without URLs as the example above) you'll see an empty page. Try running with
+its own localhost (loopback) URL: then you'll see one peer when it starts up.
+
+**Add Ping Targets** `/v1/addpeer` takes any URL, including the `/v1/ping`
+endpoint of a `pingmesh` peer, or regular web URLs (as with `perftest`). For
+example:
+
+  * www.google.com -- a bare hostname will be pinged over HTTP by default
+  * https://www.google.com -- specify the protocol to use HTTPS (TLS/SSL)
+  * https://my.pingmesh.host.name/v1/ping -- send requests to a peer instance
+    (that is just a made-up name, you will need your own). See Run on Rafay
+    below for an easy way to run the docker on many distributed endpoints.
+
+You can override the IP address for any of these hostnames if you want to ping a
+specific instance, while still sending the correct host header. The host header
+must be correct for services using TLS (SSL) Server Name Indication (SNI), which
+is done for most interesting internet requests. Here's an example:
+
+  * http://my.local.pingmesh.name:8080/v1/ping with IP of 127.0.0.1 --
+    override the DNS lookup to send pings to your local instance
+
+If you want your location to show up correctly be sure to set REP_LOCATION. I
+use City,CC (where CC is the ISO country code).
+
+## Adding Peers Peers
+
+To build the mesh go to the `addpeers` form page and enter the URL of a
+`pingmesh` peer, ending with `/v1/peers?addpeers=true` (add a query string flag
+to the get peers request for the remote server). If it's a pingmesh instance you
+may want to specify an IP override. Now the server will ask a peer for its
+peers, and add them to its list. This is how we build the mesh.
+
+We detect duplication of the hostname and IP address to prevent the obvious
+explosive of entries. In the future we'll add a feature to automatically grow
+the mesh, but this one requires extra care to avoid internet worm syndrome. So
+keep watch for future versions.
+
+-------------------------------------------------------------------------------
 
 # Run on Rafay
 
@@ -161,8 +196,6 @@ To run a workload on the Rafay Platform you will need to sign up for an account
 Refer to the [perftest](https://github.com/rafayopen/perftest) README for how to
 sign up, login to the Rafay admin console, initialize the Rafay CLI, and upload
 your container.
-
-
 
 ### Configure Workload
 
@@ -195,9 +228,13 @@ with values like this, clicking Add Startup Configuration as needed:
 
 | Name | Value | Comments |
 |------|-------|----------|
+| PINGMESH_HOSTNAME | The local hostname | Shared in /v1/peers as JSON as "SrvHost" |
+| REP_LOCATION | City,CC (ISO country code) | Sent to CloudWatch, in stdout, and JSON "SrvLoc" |
 | AWS_REGION | your AWS preferred region | CloudWatch region |
 | AWS_ACCESS_KEY_ID | your AWS access key id | CloudWatch credentials |
 | AWS_SECRET_ACCESS_KEY | your AWS secret access key | CloudWatch credentials |
+| PINGMESH_LIMIT | Number of tests | Overrides the -n option (env var has precedence) |
+| PINGMESH_DELAY | Time between requests | Overrides the -d option (env has precedence) |
 
 If you leave these marked Secure they will not appear in the UI and will be
 transmitted securely to the Rafay platform.
@@ -246,7 +283,7 @@ guide](https://rafay.zendesk.com/hc/en-us/articles/360007054432-Quick-Start-Guid
 for this and other scenarios.  You'll need Rafay credentials to pull up
 zendesk content at this time.
 
- 
+
 ## Debugging Workload Issues
 
 If the workload fails to place, try running it locally, for example
@@ -293,9 +330,8 @@ CloudWatch instance.
     corresponds to AWS credentials you entered into the Rafay console).
   * Navigate to CloudWatch Metrics, select all metrics, and watch the data
     roll in.
-    
+
 You'll note that the Rafay workload picks up a location label automatically
 from the environment: we put REP_LOCATION, and a few other items, into the
 shell environment of every container.  You can see them by running a
 go-httpbin testapp we also provide (at the /env/ endpoint).
-
