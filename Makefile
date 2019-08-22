@@ -53,7 +53,7 @@ cmd/${IMAGE}/${LINUX_EXE}:	cmd/*/*.go pkg/*/*.go
 
 .PHONY: run push
 run:	${IMAGE_LIST}
-	$(DOCKER) run --rm -it -e ${IMAGE}_URL="https://www.google.com" -e REP_CITY="Sunnyvale" -e REP_COUNTRY="US" -e AWS_REGION="us-west-2" -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" ${IMAGE} -n=5 -d=2
+	$(DOCKER) run --rm -it -e PINGMESH_URL="https://www.google.com" -e REP_CITY="Sunnyvale" -e REP_COUNTRY="US" -e AWS_REGION="us-west-2" -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" ${IMAGE} -n=5 -d=2
 
 push:	${IMAGE_LIST}
 	$(DOCKER) tag ${IMAGE} "${DOCKER_USER}/${IMAGE}:${VERSION}"
