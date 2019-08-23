@@ -10,4 +10,4 @@ ADD cmd/pingmesh/pingmesh.exe /usr/local/bin/pingmesh
 # Include -c option to publish to CloudWatch.  You must also set the following
 # environment variables: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.
 # Include -v option to turn on verbose logging.
-ENTRYPOINT [ "/usr/local/bin/pingmesh", "-c", "-v", "-s", "80", "-r", "443"  ]
+ENTRYPOINT [ "/usr/local/bin/pingmesh", "-c", "-s", "80", "-r", "443"  ]
