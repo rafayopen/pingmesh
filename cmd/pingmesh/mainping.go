@@ -53,7 +53,7 @@ func main() {
 		myHost      string
 		peerIP      string
 		cwFlag      bool
-		vf, qf      bool
+		vf, v2, qf  bool
 		verbose     int = 1
 	)
 
@@ -63,6 +63,7 @@ func main() {
 	flag.IntVar(&numTests, "n", 0, "number of tests to each endpoint (default 0 runs until interrupted)")
 	flag.BoolVar(&cwFlag, "c", false, "publish metrics to CloudWatch")
 	flag.BoolVar(&vf, "v", false, "be more verbose")
+	flag.BoolVar(&v2, "V", false, "be even more verbose")
 	flag.BoolVar(&qf, "q", false, "be less verbose")
 	flag.StringVar(&myLocation, "L", "", "HTTP client's location to report")
 	flag.StringVar(&myHost, "H", "", "My hostname (should resolve to accessible IPs)")
@@ -79,6 +80,9 @@ func main() {
 	if vf {
 		verbose += 1
 	}
+	if v2 {
+		verbose += 2
+	}
 	if qf {
 		verbose = 0
 	}
@@ -87,7 +91,7 @@ func main() {
 		cwRegion := os.Getenv("AWS_REGION")
 		if len(cwRegion) > 0 && len(os.Getenv("AWS_ACCESS_KEY_ID")) > 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) > 0 {
 			if verbose > 1 {
-				log.Println("publishing to CloudWatch region", cwRegion)
+				log.Println("publishing to CloudWatch region", cwRegion, "from", myLocation)
 			}
 		} else {
 			log.Println("CloudWatch requires in environment: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY")
@@ -137,6 +141,10 @@ func main() {
 	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, numTests, pingDelay, verbose)
 
 	endpoints := flag.Args() // any remaining arguments are the endpoints to ping
+	if urlEnv, found := os.LookupEnv("PINGMESH_URL"); found {
+		endpoints = append(endpoints, urlEnv)
+	}
+
 	if len(endpoints) == 0 {
 		if servePort == 0 {
 			printUsage()

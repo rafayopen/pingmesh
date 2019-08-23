@@ -229,6 +229,7 @@ with values like this, clicking Add Startup Configuration as needed:
 | Name | Value | Comments |
 |------|-------|----------|
 | PINGMESH_HOSTNAME | The local hostname | Shared in /v1/peers as JSON as "SrvHost" |
+| PINGMESH_URL | A pingmesh endpoint | In addition to args, can be used for "ping master" |
 | REP_LOCATION | City,CC (ISO country code) | Sent to CloudWatch, in stdout, and JSON "SrvLoc" |
 | AWS_REGION | your AWS preferred region | CloudWatch region |
 | AWS_ACCESS_KEY_ID | your AWS access key id | CloudWatch credentials |

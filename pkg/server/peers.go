@@ -86,7 +86,7 @@ func (p *peer) Ping() {
 		log.Println("ping", p.Url)
 	}
 
-	maxfail := 10    // max before thread quits trying
+	maxfail := 1000  // max before thread quits trying
 	mn := "TCP RTT"  // CloudWatch metric name
 	ns := "pingmesh" // Cloudwatch namespace
 
@@ -241,8 +241,8 @@ func (p *peer) Ping() {
 		if p.ms.CwFlag() {
 			metric := pt.Msec(ptResult.TcpHs)
 			myLocation := p.ms.SrvLocation()
-			if p.ms.Verbose() > 1 {
-				log.Println("publishing TCP RTT", metric, "msec to CloudWatch ", ns)
+			if p.ms.Verbose() > 2 {
+				log.Println("publishing TCP RTT", metric, "msec to CloudWatch", ns, "from", myLocation)
 			}
 			respCode := "0"
 			if ptResult.RespCode >= 0 {

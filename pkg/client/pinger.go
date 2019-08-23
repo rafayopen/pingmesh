@@ -243,7 +243,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		Close:    tClose.Sub(tFirst), // content transfer: last byte time
 		Total:    tClose.Sub(tDnsLk), // request time not including DNS lookup
 		DestUrl:  &urlStr,            // URL that received the request
-		Location: &location,          // SERVER, **NOTE**: different from perftest/FetchURL!
+		Location: &location,          // REMOTE location, **NOTE**: different from perftest/FetchURL!
 		Remote:   remoteIP,           // Server IP from TCP connection resolution
 		RespCode: status,
 		Size:     bytes,
