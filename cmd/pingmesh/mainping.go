@@ -186,7 +186,9 @@ func main() {
 		if verbose > 1 {
 			log.Println("starting ping across", endpoints)
 		}
-		pt.TextHeader(os.Stdout)
+		if verbose > 1 {
+			pt.TextHeader(os.Stdout)
+		}
 	}
 
 	////

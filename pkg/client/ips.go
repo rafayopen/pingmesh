@@ -1,17 +1,30 @@
 package client
 
 import (
-	"log"
 	"net"
+	"time"
 )
 
-func GetIPs(hostname string) (ips []net.IP) {
-	var err error
+var (
+	myIPs   []net.IP
+	fetched time.Time
+	ipTTL   time.Duration = time.Second
+)
+
+func GetIPs(hostname string) []net.IP {
+	if len(myIPs) > 0 && time.Since(fetched) < ipTTL {
+		return myIPs
+	}
+
 	if len(hostname) > 0 {
-		ips, err = net.LookupIP(hostname)
-		if err != nil {
-			log.Println("Warning: Could not LookupIP for", hostname, err)
+		if ips, err := net.LookupIP(hostname); err == nil {
+			myIPs = ips
+		}
+		fetched = time.Now()
+		if ipTTL < time.Hour {
+			ipTTL = 2 * ipTTL
 		}
 	}
-	return
+
+	return myIPs
 }

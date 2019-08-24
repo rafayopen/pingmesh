@@ -68,10 +68,10 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, nu
 
 	once.Do(func() {
 		ms := &meshSrv{
-			Start:      time.Now(),
-			SrvLoc:     myLoc,
-			SrvHost:    hostname,
-			SrvIPs:     client.GetIPs(hostname),
+			Start:   time.Now(),
+			SrvLoc:  myLoc,
+			SrvHost: hostname,
+			//SrvIPs:     client.GetIPs(hostname), // may pick up incorrect IPs first time
 			SrvPort:    report,
 			listenPort: port,
 			cwFlag:     cwFlag,

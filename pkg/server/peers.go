@@ -120,7 +120,7 @@ func (p *peer) Ping() {
 			pt.Msec(p.PingTotals.Close)/fc,
 			pt.Msec(p.PingTotals.RespTime())/fc,
 			p.PingTotals.Size/int64(p.Pings),
-			"",
+			pt.LocationOrIp(p.PingTotals.Location),
 			*p.PingTotals.DestUrl)
 	}()
 
@@ -205,6 +205,7 @@ func (p *peer) Ping() {
 						}
 					}
 					p.Location = *ptResult.Location
+					p.PingTotals.Location = ptResult.Location
 				}
 			}()
 
@@ -235,7 +236,11 @@ func (p *peer) Ping() {
 		////
 
 		if p.ms.Verbose() > 0 {
-			fmt.Println(p.Pings, ptResult.MsecTsv())
+			if p.ms.Verbose() > 1 {
+				fmt.Println(p.Pings, ptResult.MsecTsv())
+			} else {
+				fmt.Printf("%3d %8.03f msec %20s %s\n", p.Pings, pt.Msec(ptResult.TcpHs), pt.LocationOrIp(ptResult.Location), ptResult.Remote)
+			}
 		}
 
 		if p.ms.CwFlag() {

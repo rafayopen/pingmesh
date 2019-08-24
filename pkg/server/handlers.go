@@ -257,8 +257,7 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		// write response
 
-		if len(s.SrvHost) > 0 && s.SrvIPs == nil {
-			log.Println("Try again, lookup IPs for", s.SrvHost)
+		if len(s.SrvHost) > 0 { //  && s.SrvIPs == nil
 			s.SrvIPs = client.GetIPs(s.SrvHost)
 		}
 
