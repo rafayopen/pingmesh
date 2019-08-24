@@ -107,7 +107,7 @@ func (p *peer) Ping() {
 		}
 
 		fc := float64(p.Pings)
-		elapsed := Hhmmss(time.Now().Unix() - p.PingTotals.Start.Unix())
+		elapsed := Hhmmss_d(p.PingTotals.Start)
 
 		fmt.Printf("\nRecorded %d samples in %s, average values:\n"+"%s"+
 			"%d %-6s\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t%.03f\t\t%d\t%s\t%s\n\n",
@@ -283,17 +283,17 @@ func (p *peer) Ping() {
 func (p *peer) AddPeersPeers() {
 	defer p.ms.Done() // it's a goroutine
 
-	if strings.Index(p.Url, "/v1/peers") < 0 {
-		log.Println("Error: you can only addpeers with a /v1/peers request")
+	if strings.Index(p.Url, getPeersUrl) < 0 {
+		log.Println("Error: you can only addpeers with a", getPeersUrl, "request")
 		return
 	}
 
 	////
 	// Get remote meshping server publich state.  This may take a while!
 	// That's why this is a goroutine...
-	rm, err := fetchRemoteServer(p.Url, p.PeerIP)
+	rm, err := FetchRemotePeer(p.Url, p.PeerIP)
 	if err != nil {
-		return // fetchRemoteServer reported to log(stderr) already
+		return // FetchRemotePeer reported to log(stderr) already
 	}
 
 	if p.ms.Verbose() > 2 {
@@ -354,4 +354,9 @@ func Hhmmss(secs int64) string {
 		return fmt.Sprintf("%dm%02ds", min, secs)
 	}
 	return fmt.Sprintf("%ds", secs)
+}
+
+//  Hhmmss_d returns a representation of a duration in the format of Hhmmss
+func Hhmmss_d(d time.Time) string {
+	return Hhmmss(time.Now().Unix() - d.Unix())
 }

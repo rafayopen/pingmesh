@@ -151,11 +151,11 @@ const (
 	getPeersUrl = "/v1/peers"
 )
 
-func fetchRemoteServer(rawurl, ip string) (rm *meshSrv, err error) {
+func FetchRemotePeer(rawurl, ip string) (rm *meshSrv, err error) {
 	url := client.ParseURL(rawurl)
 	if url == nil {
 		log.Println("cannot parse URL", rawurl)
-		return nil, errors.New("fetchRemoteServer: Bad URL")
+		return nil, errors.New("FetchRemotePeer: Bad URL")
 	}
 
 	host, peerAddr := client.MakePeerAddr(url.Scheme, url.Host, ip)
@@ -184,7 +184,7 @@ func fetchRemoteServer(rawurl, ip string) (rm *meshSrv, err error) {
 
 	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 	if err != nil {
-		log.Println("fetchRemoteServer: NewRequest", err)
+		log.Println("FetchRemotePeer: NewRequest", err)
 		return
 	}
 
@@ -195,20 +195,20 @@ func fetchRemoteServer(rawurl, ip string) (rm *meshSrv, err error) {
 		defer resp.Body.Close() // after we read the resonse body
 	}
 	if err != nil {
-		log.Println("fetchRemoteServer: client.request:", err)
+		log.Println("FetchRemotePeer: client.request:", err)
 		return
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("fetchRemoteServer: ReadAll body:", err)
+		log.Println("FetchRemotePeer: ReadAll body:", err)
 		return
 	}
 
 	rm = new(meshSrv)
 	err = json.Unmarshal(body, rm)
 	if err != nil {
-		log.Println("fetchRemoteServer: json.Unmarshal:", err)
+		log.Println("FetchRemotePeer: json.Unmarshal:", err)
 		log.Println("body was:", string(body))
 		return
 	}

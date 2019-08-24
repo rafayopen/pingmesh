@@ -33,9 +33,15 @@ endef
 cmd/${IMAGE}/${IMAGE}: cmd/*/*.go pkg/*/*.go
 	cd cmd/${IMAGE} && go build -v && go test -v && go vet
 
-standalone:	cmd/${IMAGE}/${IMAGE}
-install:	cmd/${IMAGE}/${IMAGE}
+# build the avgping client 
+# (this does not build a docker or Linux exe, there is no point)
+cmd/avgping/avgping: cmd/*/*.go pkg/*/*.go
+	cd cmd/avgping && go build -v && go test -v && go vet
+
+standalone:	cmd/${IMAGE}/${IMAGE} cmd/avgping/avgping
+install:	cmd/${IMAGE}/${IMAGE} cmd/avgping/avgping
 	cd cmd/${IMAGE} && go install -v
+	cd cmd/avgping && go install -v
 
 .PHONY: build docker full 
 build docker:	${IMAGE_LIST}
@@ -61,7 +67,7 @@ push:	${IMAGE_LIST}
 
 .PHONY: clean
 clean:
-	-rm -rf ${IMAGE_LIST} ${IMAGE} ${LINUX_EXE} cmd/${IMAGE}/${IMAGE} cmd/${IMAGE}/${LINUX_EXE}
+	-rm -rf ${IMAGE_LIST} ${IMAGE} ${LINUX_EXE} cmd/${IMAGE}/${IMAGE} cmd/${IMAGE}/${LINUX_EXE} cmd/avgping/avgping
 	-$(DOCKER) rmi ${IMAGE}:${VERSION}
 
 CLI = rafay-cli
