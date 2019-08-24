@@ -63,8 +63,10 @@ func main() {
 		}
 		fmt.Printf("%s %s%s has %d peers and started %s ago:\n",
 			rm.SrvLoc, peerHost, override, len(rm.Peers), server.Hhmmss_d(rm.Start))
-		fmt.Printf("%20s\t%s\t%s\t%s\t%12s\t%s\t%s\n",
-			"Location", "    PeerIP", "Pings", "Fails", "Running", "msecRTT", "respTime")
+		if len(rm.Peers) > 0 {
+			fmt.Printf("%20s\t%s\t%s\t%s\t%12s\t%s\t%s\n",
+				"Location", "    PeerIP", "Pings", "Fails", "Running", "msecRTT", "respTime")
+		}
 		sort.SliceStable(rm.Peers, func(i, j int) bool { return rm.Peers[i].Location < rm.Peers[j].Location })
 		for _, p := range rm.Peers {
 			var msecRTT, respTime float64
