@@ -209,7 +209,9 @@ func FetchRemotePeer(rawurl, ip string) (rm *meshSrv, err error) {
 	err = json.Unmarshal(body, rm)
 	if err != nil {
 		log.Println("FetchRemotePeer: json.Unmarshal:", err)
-		log.Println("body was:", string(body))
+		if verbose > 2 {
+			log.Println("body was:", string(body))
+		}
 		return
 	}
 
