@@ -2,9 +2,8 @@
 package main
 
 import (
-	"github.com/rafayopen/pingmesh/pkg/server"
-
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
+	"github.com/rafayopen/pingmesh/pkg/server"
 
 	"encoding/json"
 	"flag"
@@ -25,14 +24,10 @@ func printUsage() {
 }
 
 ////
-// main reads command line arguments, sets up signal handler, then
-// starts web server and endpoint pingers
+// main reads command line arguments then queries the pingmesh server
 func main() {
-	////
-	//  flags
 	var (
-		peerHost           string
-		peerIP             string
+		peerHost, peerIP   string
 		dumpText, dumpJson bool
 	)
 
@@ -78,6 +73,7 @@ func main() {
 				p.Location, p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.Start), msecRTT, respTime)
 		}
 	}
+
 	if dumpJson {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

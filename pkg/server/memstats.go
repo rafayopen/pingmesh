@@ -26,7 +26,7 @@ func GetMemStatSummary() *MemStatSummary {
 	alloc := bToMb(m.Alloc)
 
 	return &MemStatSummary{
-		Measured: time.Now(),
+		Measured: time.Now().UTC(),
 		ActiveMB: active,
 		AllocMB:  alloc,
 		SystemMB: bToMb(m.Sys),

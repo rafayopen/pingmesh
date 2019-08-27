@@ -30,7 +30,7 @@ func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
 		Delay:    ms.pingDelay,
 		Location: location,
 		ms:       ms,
-		Start:    time.Now(),
+		Start:    time.Now().UTC().Truncate(time.Second),
 	}
 
 	func() {

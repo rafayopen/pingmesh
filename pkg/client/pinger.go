@@ -124,12 +124,12 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 
 	var tStart, tDnsLk, tTcpHs, tConnd, tFirst, tTlsSt, tTlsHs, tClose time.Time
 
-	tStart = time.Now()
+	tStart = time.Now().UTC()
 
 	trace := &httptrace.ClientTrace{
-		DNSStart: func(_ httptrace.DNSStartInfo) { tStart = time.Now() },
+		DNSStart: func(_ httptrace.DNSStartInfo) { tStart = time.Now().UTC() },
 		DNSDone: func(i httptrace.DNSDoneInfo) {
-			tDnsLk = time.Now()
+			tDnsLk = time.Now().UTC()
 		},
 		ConnectStart: func(_, _ string) {
 			if tDnsLk.IsZero() {
@@ -139,7 +139,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 			}
 		},
 		ConnectDone: func(net, addr string, err error) {
-			tTcpHs = time.Now()
+			tTcpHs = time.Now().UTC()
 			if err != nil {
 				log.Printf("connect %s: %v", addr, err)
 				tTlsSt = tTcpHs
@@ -155,16 +155,16 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 		// TLSHandshakeStart is called when the TLS handshake is started. When
 		// connecting to a HTTPS site via a HTTP proxy, the handshake happens after
 		// the CONNECT request is processed by the proxy.
-		TLSHandshakeStart: func() { tTlsSt = time.Now() }, // same as tTcpHs (roughly)???
+		TLSHandshakeStart: func() { tTlsSt = time.Now().UTC() }, // same as tTcpHs (roughly)???
 		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
 			if err != nil {
 				log.Printf("TLS HS: %v", err)
 			}
-			tTlsHs = time.Now() // same as tConnd???
+			tTlsHs = time.Now().UTC() // same as tConnd???
 		},
 
-		GotConn:              func(_ httptrace.GotConnInfo) { tConnd = time.Now() },
-		GotFirstResponseByte: func() { tFirst = time.Now() },
+		GotConn:              func(_ httptrace.GotConnInfo) { tConnd = time.Now().UTC() },
+		GotFirstResponseByte: func() { tFirst = time.Now().UTC() },
 	}
 	req = req.WithContext(httptrace.WithClientTrace(context.Background(), trace))
 
@@ -232,7 +232,7 @@ func FetchURL(rawurl, rmtIP string) *pt.PingTimes {
 			bytes = readDiscardBody(req, resp)
 		}
 	}
-	tClose = time.Now() // after read body
+	tClose = time.Now().UTC() // after read body
 
 	p := pt.PingTimes{
 		Start:    tStart,             // request start

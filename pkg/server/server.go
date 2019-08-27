@@ -68,7 +68,7 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, nu
 
 	once.Do(func() {
 		ms := &meshSrv{
-			Start:   time.Now(),
+			Start:   time.Now().UTC().Truncate(time.Second),
 			SrvLoc:  myLoc,
 			SrvHost: hostname,
 			//SrvIPs:     client.GetIPs(hostname), // may pick up incorrect IPs first time
@@ -209,7 +209,7 @@ func FetchRemotePeer(rawurl, ip string) (rm *meshSrv, err error) {
 	err = json.Unmarshal(body, rm)
 	if err != nil {
 		log.Println("FetchRemotePeer: json.Unmarshal:", err)
-		if verbose > 2 {
+		if rm.verbose > 2 {
 			log.Println("body was:", string(body))
 		}
 		return

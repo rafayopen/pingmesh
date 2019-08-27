@@ -34,19 +34,15 @@ type peer struct {
 	Location string // location of this peer
 	PeerIP   string // peer's IP address (used for IP override)
 
-	Pings      int       // number of successful responses
-	Fails      int       // number of ping failures seen
-	Start      time.Time // time we started pinging this peer
-	FirstPing  time.Time // first recent ping response
-	LatestPing time.Time // most recent ping response
-
+	Pings      int          // number of successful responses
+	Fails      int          // number of ping failures seen
+	Start      time.Time    // time we started pinging this peer
+	FirstPing  time.Time    // first recent ping response
+	LatestPing time.Time    // most recent ping response
 	PingTotals pt.PingTimes // aggregates ping time results
 
 	ms *meshSrv   // point back to the server for receivers to access state
 	mu sync.Mutex // make peer reentrant
-	// ping response fields go here ... TODO
-
-	// auto-updated fields
 }
 
 ////
@@ -180,12 +176,12 @@ func (p *peer) Ping() {
 				p.mu.Lock()
 				defer p.mu.Unlock()
 				p.Pings++
-				now := time.Now()
-				p.LatestPing = now
+				now := time.Now().UTC()
+				p.LatestPing = now.UTC().Truncate(time.Second)
 				if p.Pings == 1 {
 					////
 					// first ping -- initialize ptResult
-					p.FirstPing = now
+					p.FirstPing = now.UTC().Truncate(time.Second)
 					p.PingTotals = *ptResult
 				} else {
 					p.PingTotals.DnsLk += ptResult.DnsLk
