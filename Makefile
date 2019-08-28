@@ -29,7 +29,6 @@ endef
 ##
 # build the standalone pingmesh application
 ##
-.PHONY: standalone install
 cmd/${IMAGE}/${IMAGE}: cmd/*/*.go pkg/*/*.go
 	cd cmd/${IMAGE} && go build -v && go test -v && go vet
 
@@ -38,8 +37,9 @@ cmd/${IMAGE}/${IMAGE}: cmd/*/*.go pkg/*/*.go
 cmd/avgping/avgping: cmd/*/*.go pkg/*/*.go
 	cd cmd/avgping && go build -v && go test -v && go vet
 
+.PHONY: standalone install
 standalone:	cmd/${IMAGE}/${IMAGE} cmd/avgping/avgping
-install:	cmd/${IMAGE}/${IMAGE} cmd/avgping/avgping
+install:	cmd/*/*.go pkg/*/*.go
 	cd cmd/${IMAGE} && go install -v
 	cd cmd/avgping && go install -v
 
