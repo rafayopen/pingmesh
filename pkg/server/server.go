@@ -28,11 +28,10 @@ import (
 type meshSrv struct {
 	Start time.Time // time we started the pingmesh server itself
 
-	SrvLoc     string   // user-supplied location info for CW reporting
-	SrvHost    string   // optional hostname
-	SrvPort    int      // server port number as reported to peers
-	listenPort int      // actual server listen port number (NOT in JSON)
-	SrvIPs     []net.IP // public IPs from DNS if hostname is set
+	SrvLoc     string // user-supplied location info for CW reporting
+	SrvHost    string // optional hostname
+	SrvPort    int    // server port number as reported to peers
+	listenPort int    // actual server listen port number (NOT in JSON)
 
 	Peers      []*peer // information about ping mesh peers (see peers.go)
 	Requests   int     // how many API requests (or pings) I have served
@@ -68,10 +67,9 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, nu
 
 	once.Do(func() {
 		ms := &meshSrv{
-			Start:   time.Now().UTC().Truncate(time.Second),
-			SrvLoc:  myLoc,
-			SrvHost: hostname,
-			//SrvIPs:     client.GetIPs(hostname), // may pick up incorrect IPs first time
+			Start:      time.Now().UTC().Truncate(time.Second),
+			SrvLoc:     myLoc,
+			SrvHost:    hostname,
 			SrvPort:    report,
 			listenPort: port,
 			cwFlag:     cwFlag,

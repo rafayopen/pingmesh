@@ -4,7 +4,6 @@ import (
 	"github.com/rafayopen/pingmesh/pkg/client" // ParseURL
 
 	"log"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +29,6 @@ func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
 		Delay:    ms.pingDelay,
 		Location: location,
 		ms:       ms,
-		Start:    time.Now().UTC().Truncate(time.Second),
 	}
 
 	func() {

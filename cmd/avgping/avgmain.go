@@ -44,7 +44,7 @@ func main() {
 		printUsage()
 		return
 	}
-	peerUrl := "https://" + peerHost + "/v1/peers"
+	peerUrl := peerHost + "/v1/peers"
 
 	rm, err := server.FetchRemotePeer(peerUrl, peerIP)
 	if err != nil {
@@ -69,8 +69,11 @@ func main() {
 				msecRTT = pt.Msec(p.PingTotals.TcpHs) / float64(p.Pings)
 				respTime = pt.Msec(p.PingTotals.Total) / float64(p.Pings)
 			}
+			if len(p.PeerIP) == 0 {
+				p.PeerIP = " unknown "
+			}
 			fmt.Printf("%20s\t%s\t%d\t%d\t%12v\t%.03f\t%.03f\n",
-				p.Location, p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.Start), msecRTT, respTime)
+				p.Location, p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.FirstPing), msecRTT, respTime)
 		}
 	}
 

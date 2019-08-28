@@ -203,7 +203,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 	if peer, err := s.AddPingTarget(url, ip, client.LocUnknown); err != nil {
 		log.Println("error adding peer", peer)
 		if err == PeerAlreadyPresent {
-			reply += `<p>Peer was already in the peer list since ` + peer.Start.String() + `:
+			reply += `<p>Peer was already in the peer list since ` + peer.FirstPing.String() + `:
 <br>Url: ` + peer.Url + `
 <br>IP: ` + peer.PeerIP + `</p><p><a href="/v1/peers">Click here</a> for JSON peer list.`
 		} else {
@@ -256,11 +256,6 @@ func (s *meshSrv) PeersHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "GET":
 		// write response
-
-		if len(s.SrvHost) > 0 { //  && s.SrvIPs == nil
-			s.SrvIPs = client.GetIPs(s.SrvHost)
-		}
-
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		func() {

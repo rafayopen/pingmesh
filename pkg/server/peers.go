@@ -34,11 +34,10 @@ type peer struct {
 	Location string // location of this peer
 	PeerIP   string // peer's IP address (used for IP override)
 
+	FirstPing  time.Time    // first ping request
+	LatestPing time.Time    // most recent ping response
 	Pings      int          // number of successful responses
 	Fails      int          // number of ping failures seen
-	Start      time.Time    // time we started pinging this peer
-	FirstPing  time.Time    // first recent ping response
-	LatestPing time.Time    // most recent ping response
 	PingTotals pt.PingTimes // aggregates ping time results
 
 	ms *meshSrv   // point back to the server for receivers to access state
@@ -62,7 +61,7 @@ var (
 ////
 //  Info returns a string with basic peer state
 func (p *peer) Info() string {
-	return fmt.Sprintf("%s delay %d (on %d of %d) started %v\n", p.Url, p.Delay, 0, p.Limit, p.Start)
+	return fmt.Sprintf("%s delay %d (on %d of %d)\n", p.Url, p.Delay, 0, p.Limit)
 }
 
 func init() {
@@ -120,6 +119,7 @@ func (p *peer) Ping() {
 			*p.PingTotals.DestUrl)
 	}()
 
+	p.FirstPing = time.Now().UTC().Truncate(time.Second)
 	for {
 		if p.ms.DoneChan() == nil {
 			// channel is nil, reading from it will block, return
@@ -181,7 +181,6 @@ func (p *peer) Ping() {
 				if p.Pings == 1 {
 					////
 					// first ping -- initialize ptResult
-					p.FirstPing = now.UTC().Truncate(time.Second)
 					p.PingTotals = *ptResult
 				} else {
 					p.PingTotals.DnsLk += ptResult.DnsLk
