@@ -31,6 +31,7 @@ type peer struct {
 	Host     string // hostname from Url
 	Limit    int    // number of pings before exiting
 	Delay    int    // delay between pings
+	Maxfail  int    // max failures before exiting
 	Location string // location of this peer
 	PeerIP   string // peer's IP address (used for IP override)
 
@@ -61,7 +62,8 @@ var (
 ////
 //  Info returns a string with basic peer state
 func (p *peer) Info() string {
-	return fmt.Sprintf("%s delay %d (on %d of %d)\n", p.Url, p.Delay, 0, p.Limit)
+	return fmt.Sprintf("%s delay %d (%d of %d success, %d of %d fails)\n",
+		p.Url, p.Delay, p.Pings, p.Limit, p.Fails, p.Maxfail)
 }
 
 func init() {
@@ -81,9 +83,9 @@ func (p *peer) Ping() {
 		log.Println("ping", p.Url)
 	}
 
-	maxfail := 1000  // max before thread quits trying
-	mn := "TCP RTT"  // CloudWatch metric name
-	ns := "pingmesh" // Cloudwatch namespace
+	maxfail := p.Maxfail // default before thread quits trying
+	mn := "TCP RTT"      // CloudWatch metric name
+	ns := "pingmesh"     // Cloudwatch namespace
 
 	limit := p.Limit // number of pings before we quit, "forever" if zero
 	if limit == 0 {

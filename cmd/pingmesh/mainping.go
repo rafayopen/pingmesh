@@ -47,6 +47,7 @@ func main() {
 	var (
 		numTests    int
 		pingDelay   int
+		maxFail     int
 		servePort   int
 		serveReport int
 		myLocation  string
@@ -58,6 +59,7 @@ func main() {
 	)
 
 	flag.IntVar(&pingDelay, "d", 10, "delay in seconds between ping requests")
+	flag.IntVar(&maxFail, "f", 100, "maximum failures before pinger quits trying")
 	flag.IntVar(&servePort, "s", 0, "server listen port; default zero means don't run a server")
 	flag.IntVar(&serveReport, "r", 0, "server port to report as SrvPort (Rafay translates ports in edge)")
 	flag.IntVar(&numTests, "n", 0, "number of tests to each endpoint (default 0 runs until interrupted)")
@@ -138,7 +140,19 @@ func main() {
 		}
 	}
 
-	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, numTests, pingDelay, verbose)
+	if numEnv, found := os.LookupEnv("PINGMESH_MAXFAIL"); found {
+		num, err := strconv.Atoi(numEnv)
+		if err != nil || num < 1 {
+			log.Println("Warning: PINGMESH_MAXFAIL from environment is", numEnv, "-- value must be int > 0.  Using -f", maxFail, "instead")
+		} else {
+			if wasFlagPassed("f") {
+				log.Println("Note: PINGMESH_MAXFAIL from environment,", num, "overrides -f", maxFail)
+			}
+			maxFail = num
+		}
+	}
+
+	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, numTests, pingDelay, maxFail, verbose)
 
 	endpoints := flag.Args() // any remaining arguments are the endpoints to ping
 	if urlEnv, found := os.LookupEnv("PINGMESH_URL"); found {

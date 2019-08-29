@@ -4,6 +4,7 @@ import (
 	"github.com/rafayopen/pingmesh/pkg/client" // ParseURL
 
 	"log"
+	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -21,12 +22,16 @@ func (ms *meshSrv) NewPeer(url, ip, location string) *peer {
 
 	host := u.Host
 
+	////
+	// Create a new peer with default limit, delay, and fails.
+	// See override code in handlers.go:AddPingHandler
 	p := peer{
 		Url:      url,
 		Host:     host,
 		PeerIP:   ip, // may be empty
 		Limit:    ms.numTests,
 		Delay:    ms.pingDelay,
+		Maxfail:  ms.maxFail,
 		Location: location,
 		ms:       ms,
 	}
@@ -89,11 +94,15 @@ func (ms *meshSrv) Delete(p *peer) {
 	ms.NumDeleted++
 
 	var newPeers []*peer // replacement peer array
+	var delPeers []*peer
 	found := 0
 
 	for _, plist := range ms.Peers {
 		if plist.Url == p.Url && (len(p.PeerIP) == 0 || plist.PeerIP == p.PeerIP) {
 			found++
+			// replace latest ping time with deletion time
+			plist.LatestPing = time.Now().UTC().Truncate(time.Second)
+			delPeers = append(delPeers, plist)
 		} else {
 			newPeers = append(newPeers, plist)
 		}
@@ -114,6 +123,11 @@ func (ms *meshSrv) Delete(p *peer) {
 		}
 	}
 	ms.Peers = newPeers
+	ms.DelPeers = append(ms.DelPeers, delPeers...) // may get repeats
+	if len(ms.DelPeers)+len(delPeers) > 100 {
+		// keep only most recent 100 deleted peers
+		ms.DelPeers = ms.DelPeers[len(ms.DelPeers)-100:]
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

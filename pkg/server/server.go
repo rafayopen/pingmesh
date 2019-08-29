@@ -37,9 +37,11 @@ type meshSrv struct {
 	Requests   int     // how many API requests (or pings) I have served
 	NumActive  int     // count of active peers
 	NumDeleted int     // count of deleted peers
+	DelPeers   []*peer // list of last 100 deleted peers
 
-	numTests  int // from main() command line args or env vars
-	pingDelay int // from main() command line args or env vars
+	numTests  int // from main() command line args or env vars, server default
+	pingDelay int // from main() server default ping delay
+	maxFail   int // from main() server default max failures before exiting
 
 	wg      *sync.WaitGroup // ping and server threads share this wg
 	mu      sync.Mutex      // make meshSrv reentrant (protect peers)
@@ -60,7 +62,7 @@ var (
 //  NewPingmeshServer creates a new server instance (only once), assigns its
 //  values from the parameters, sets up HTTP routes, and starts a web server
 //  on the local host:port if configured.
-func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, numTests, pingDelay, verbose int) *meshSrv {
+func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, numTests, pingDelay, maxFail, verbose int) *meshSrv {
 	if report == 0 {
 		report = port
 	}
@@ -75,6 +77,7 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, nu
 			cwFlag:     cwFlag,
 			numTests:   numTests,
 			pingDelay:  pingDelay,
+			maxFail:    maxFail,
 			verbose:    verbose,
 			wg:         new(sync.WaitGroup), // used by server and ping peers, controls exit from main()
 			done:       make(chan int),      // signals goroutines to exit after signal caught in main()
@@ -193,7 +196,7 @@ func FetchRemotePeer(rawurl, ip string) (rm *meshSrv, err error) {
 		defer resp.Body.Close() // after we read the resonse body
 	}
 	if err != nil {
-		log.Println("FetchRemotePeer: client.request:", err)
+		log.Println("FetchRemotePeer: client.request", urlStr, "on", ip, err)
 		return
 	}
 

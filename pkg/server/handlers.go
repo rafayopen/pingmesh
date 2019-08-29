@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -201,7 +202,7 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 	}
 
 	if peer, err := s.AddPingTarget(url, ip, client.LocUnknown); err != nil {
-		log.Println("error adding peer", peer)
+		log.Println("error", err, "adding peer", peer)
 		if err == PeerAlreadyPresent {
 			reply += `<p>Peer was already in the peer list since ` + peer.FirstPing.String() + `:
 <br>Url: ` + peer.Url + `
@@ -210,6 +211,31 @@ or <em>https://pingmesh.run.rafay-edge.net/v1/ping</em> to measure to a peer
 			reply += `<p>Unknown error: ` + err.Error()
 		}
 	} else { // err == nil, peer had better != nil
+		if lv := qs["limit"]; len(lv) > 0 {
+			if limit, err := strconv.Atoi(lv[0]); err == nil {
+				log.Println("got limit", limit)
+				peer.Limit = limit
+			} else {
+				log.Println("could not parse limit parameter", lv[0])
+			}
+		}
+		if dv := qs["delay"]; len(dv) > 0 {
+			if delay, err := strconv.Atoi(dv[0]); err == nil {
+				log.Println("got delay", delay)
+				peer.Delay = delay
+			} else {
+				log.Println("could not parse delay parameter", dv[0])
+			}
+		}
+		if fv := qs["fails"]; len(fv) > 0 {
+			if fails, err := strconv.Atoi(fv[0]); err == nil {
+				log.Println("got fails", fails)
+				peer.Maxfail = fails
+			} else {
+				log.Println("could not parse fails parameter", fv[0])
+			}
+		}
+
 		log.Println("added peer", url+override)
 		reply += `<p>Added a new peer for ` + url + override + `
 <p><a href="/v1/peers">Click here</a> for JSON peer list.`
