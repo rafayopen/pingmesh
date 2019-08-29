@@ -44,11 +44,11 @@ func main() {
 		printUsage()
 		return
 	}
-	peerUrl := peerHost + "/v1/peers"
+	peerUrl := "https://" + peerHost + "/v1/peers"
 
 	rm, err := server.FetchRemotePeer(peerUrl, peerIP)
 	if err != nil {
-		return // FetchRemotePeer reported to log(stderr) already
+		os.Exit(1) // FetchRemotePeer reported to log(stderr) already
 	}
 
 	if dumpText {
