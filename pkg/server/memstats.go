@@ -7,7 +7,7 @@ import (
 
 type MemStatSummary struct {
 	Measured time.Time
-	ActiveMB uint64 // The number of live objects is Mallocs - Frees.
+	Active   uint64 // The number of live objects is Mallocs - Frees.
 	AllocMB  uint64 // HeapAlloc is bytes of allocated heap objects.
 	SystemMB uint64 // Sys is the total bytes of memory obtained from the OS.
 	NumGC    uint32 // NumGC is the number of completed GC cycles.
@@ -27,7 +27,7 @@ func GetMemStatSummary() *MemStatSummary {
 
 	return &MemStatSummary{
 		Measured: time.Now().UTC(),
-		ActiveMB: active,
+		Active:   active,
 		AllocMB:  alloc,
 		SystemMB: bToMb(m.Sys),
 		NumGC:    m.NumGC,
