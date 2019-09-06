@@ -221,7 +221,7 @@ func main() {
 	}
 
 	pm.Wait()
-	if verbose > 0 {
+	if verbose > 1 {
 		log.Println("all goroutines exited, closing server")
 	}
 
