@@ -327,7 +327,7 @@ using the download link (arrow icon).
 
 If you configured the AWS environment you can also view it in your AWS
 CloudWatch instance.
-  * Login to [your AWS console](console.aws.amazon.com) (the one that
+  * Login to [your AWS console](https://console.aws.amazon.com) (that
     corresponds to AWS credentials you entered into the Rafay console).
   * Navigate to CloudWatch Metrics, select all metrics, and watch the data
     roll in.
@@ -336,3 +336,6 @@ You'll note that the Rafay workload picks up a location label automatically
 from the environment: we put REP_LOCATION, and a few other items, into the
 shell environment of every container.  You can see them by running a
 go-httpbin testapp we also provide (at the /env/ endpoint).
+
+I shared some more information, including a couple of performance graphs in a
+[blog post on LinkedIn](https://www.linkedin.com/pulse/ping-mesh-john-dilley/).
