@@ -199,7 +199,7 @@ func (p *peer) Ping() {
 				}
 
 				if p.Location == client.LocUnknown {
-					if *ptResult.Location != client.LocUnknown {
+					if *ptResult.Location != client.LocUnknown && len(*ptResult.Location) > 0 {
 						p.Location = *ptResult.Location
 						p.PingTotals.Location = &p.Location
 						if p.ms.Verbose() > 1 {
