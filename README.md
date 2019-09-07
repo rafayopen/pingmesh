@@ -71,7 +71,7 @@ In addition, some options can be controlled via environment variables. This
 makes it easier to deploy on the Rafay distributed computing platform, and
 likely on other similar platforms.
 
-
+Version 0.4.3 improves the CloudWatch reporting for non-pingmesh peers. 
 
 ## How to Build and Run
 
