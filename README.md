@@ -8,7 +8,7 @@ some unusual changes in network behavior based on direction and by time of day.
 Tracking this data can help inform container placement or application routing
 decisions.
 
-It `pingmesh` uses code from the open source `perftest` application, plus AWS
+The `pingmesh` uses code from the open source `perftest` application, plus AWS
 SDK components. It's based on golang 1.12 with modules, so dependencies will be
 pulled down automatically if you also have a modern version go.
 
@@ -22,6 +22,10 @@ names or IP addresses as shown in examples below.
 The app needs public IP connectivity to publish metrics to CloudWatch, if you
 want to use that to view metrics. Of course you can alter the code to publish
 anywhere you like...
+
+I shared some more information, including a couple of performance graphs in a
+[blog post on LinkedIn](https://www.linkedin.com/pulse/ping-mesh-john-dilley/)
+if you want to check that out.
 
 ## Prerequisites
 
