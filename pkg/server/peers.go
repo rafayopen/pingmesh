@@ -193,16 +193,23 @@ func (p *peer) Ping() {
 					p.PingTotals.Total += ptResult.Total
 					p.PingTotals.Size += ptResult.Size
 				}
-				if p.Location != *ptResult.Location {
-					if p.ms.Verbose() > 1 {
-						if p.Location == client.LocUnknown {
+
+				if len(p.PeerIP) == 0 && len(ptResult.Remote) > 0 {
+					p.PeerIP = ptResult.Remote
+				}
+
+				if p.Location == client.LocUnknown {
+					if *ptResult.Location != client.LocUnknown {
+						p.Location = *ptResult.Location
+						p.PingTotals.Location = &p.Location
+						if p.ms.Verbose() > 1 {
 							log.Println("Initialize remote location to", *ptResult.Location)
-						} else {
-							log.Println("Remote peer's location changed:", p.Location, "is now", *ptResult.Location)
 						}
+					} else {
+						// It's not returning a pingmesh Location response, use IP
+						p.Location = p.PeerIP
+						p.PingTotals.Location = &p.Location
 					}
-					p.Location = *ptResult.Location
-					p.PingTotals.Location = ptResult.Location
 				}
 			}()
 
