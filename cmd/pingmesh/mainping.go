@@ -182,8 +182,9 @@ func main() {
 			if pm.DoneChan() != nil {
 				fmt.Println("\nreceived", sig, "signal, terminating")
 				pm.CloseDoneChan()
-				if len(endpoints) == 0 {
-					pm.Done()
+				if servePort > 0 {
+					servePort = 0
+					pm.Shutdown()
 				}
 			} else {
 				// something went wrong (should have exited already)

@@ -148,6 +148,7 @@ func (ms *meshSrv) Shutdown() {
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Println("server.Shutdown:", err)
 	}
+	ms.Done()
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
