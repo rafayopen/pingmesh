@@ -165,7 +165,6 @@ func main() {
 			return
 		}
 		fmt.Println("NOTE: not starting any pings, just serving")
-		pm.Add() // this prevents server from exiting when the (zero) goroutines are done
 	}
 
 	if pm == nil {

@@ -398,4 +398,5 @@ func (s *meshSrv) QuitHandler(w http.ResponseWriter, r *http.Request) {
 	////
 	//  Close the meshSrv done channel so the pinger peers will exit.
 	s.CloseDoneChan()
+	s.Done()
 }
