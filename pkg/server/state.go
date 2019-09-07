@@ -76,7 +76,7 @@ func (ms *meshSrv) FindPeer(url, ip string) *peer {
 
 	for _, p := range ms.Peers {
 		// It's OK to ping the same URL (host) on multiple IPs
-		if p.Host == host && p.PeerIP == ip {
+		if p.Host == host && (len(ip) == 0 || p.PeerIP == ip) {
 			return p
 		}
 	}

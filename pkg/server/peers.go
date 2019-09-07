@@ -206,8 +206,8 @@ func (p *peer) Ping() {
 							log.Println("Initialize remote location to", *ptResult.Location)
 						}
 					} else {
-						// It's not returning a pingmesh Location response, use IP
-						p.Location = p.PeerIP
+						// It's not returning a pingmesh Location response, use hostname
+						p.Location = p.Url
 						p.PingTotals.Location = &p.Location
 					}
 				}
