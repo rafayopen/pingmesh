@@ -56,7 +56,7 @@ func ParseURL(uri string) *url.URL {
 	return url
 }
 
-// leveraged from net/http/http.go but return the index of the colon before port or -1
+// leveraged from net/http/http.go:hasPort but return the index of the colon before port or -1
 func portIndex(s string) int {
 	lc := strings.LastIndex(s, ":")
 	lb := strings.LastIndex(s, "]")
@@ -73,6 +73,10 @@ func HostNoPort(addr string) string {
 	return addr
 }
 
+////
+//  MakePeerAddr returns a hostname and fully qualified peer IP address with
+//  port number suitable for dialer.DialContext.  The newhost returned is
+//  stripped of any port number passed in (suitable for reporting).
 func MakePeerAddr(scheme, host, rmtIP string) (newhost, peerAddr string) {
 	rmtPort := "443"
 	if scheme == "http" {
