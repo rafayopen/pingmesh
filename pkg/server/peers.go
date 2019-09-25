@@ -132,8 +132,13 @@ func (p *peer) Ping() {
 		}
 		////
 		// Sleep first, allows risk-free continue from error cases below
+		sleepTime := p.Delay
+		if p.Pings == 0 {
+			sleepTime = 1 // short sleep the first time around
+		}
+
 		select {
-		case <-time.After(JitterPct(p.Delay, 1)):
+		case <-time.After(JitterPct(sleepTime, 1)):
 			// we waited for the delay and got nothing ... loop around
 
 		case newdelay, more := <-p.ms.DoneChan():
@@ -344,13 +349,18 @@ func JitterPct(secs, pct int) time.Duration {
 }
 
 //  Hhmmss returns a representation of the number of seconds (secs) like
-//  01h15m22s (leaving off 00h and 00h00m if they are zero).
+//  1h15m22s (leaving off 0d, 0h or 0m prefix if they are zero).
 func Hhmmss(secs int64) string {
+	dd := secs / 86400
+	secs -= dd * 86400
 	hr := secs / 3600
 	secs -= hr * 3600
 	min := secs / 60
 	secs -= min * 60
 
+	if dd > 0 {
+		return fmt.Sprintf("%dd%0dh%02dm%02ds", dd, hr, min, secs)
+	}
 	if hr > 0 {
 		return fmt.Sprintf("%dh%02dm%02ds", hr, min, secs)
 	}
