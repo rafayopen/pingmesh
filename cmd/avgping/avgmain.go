@@ -11,9 +11,12 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 )
 
 const usage = `Usage: %s [flags]
+This application will fetch the pingmesh peer list from the remote host
+and report the average TCP RTT value for each one.  
 
 Command line flags:
 `
@@ -27,14 +30,16 @@ func printUsage() {
 // main reads command line arguments then queries the pingmesh server
 func main() {
 	var (
-		peerHost, peerIP   string
-		dumpText, dumpJson bool
+		peerHost, peerIP string
+		dumpJson         bool
+		dumpDeleted      bool
 	)
 
-	flag.BoolVar(&dumpText, "T", true, "dump text output")
-	flag.BoolVar(&dumpJson, "J", false, "dump JSON output")
+	flag.BoolVar(&dumpJson, "J", false, "dump output as the raw JSON object")
 
-	flag.StringVar(&peerHost, "H", "", "Hostname of a pingmesh peer")
+	flag.BoolVar(&dumpDeleted, "d", false, "included deleted peers in text output (JSON has DelPeers)")
+
+	flag.StringVar(&peerHost, "H", "", "Hostname of a pingmesh peer (with optional :port suffix)")
 	flag.StringVar(&peerIP, "I", "", "IP of a pingmesh peer (overrides DNS Hostname if set)")
 
 	flag.Usage = printUsage
@@ -44,14 +49,27 @@ func main() {
 		printUsage()
 		return
 	}
-	peerUrl := "https://" + peerHost + "/v1/peers"
+	peerUrl := peerHost + "/v1/peers"
 
 	rm, err := server.FetchRemotePeer(peerUrl, peerIP)
 	if err != nil {
-		os.Exit(1) // FetchRemotePeer reported to log(stderr) already
+		if !strings.HasPrefix(peerUrl, "http") {
+			fmt.Println("Trying with https:// protocol")
+			peerUrl = "https://" + peerUrl
+			rm, err = server.FetchRemotePeer(peerUrl, peerIP)
+		}
+		if err != nil {
+			os.Exit(1) // FetchRemotePeer reported to log(stderr) already
+		}
 	}
 
-	if dumpText {
+	if dumpJson {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(rm); err != nil {
+			log.Fatal("failed to decode JSON")
+		}
+	} else {
 		var override string
 		if len(peerIP) > 0 {
 			override = " at " + peerIP
@@ -73,17 +91,40 @@ func main() {
 				p.PeerIP = " unknown "
 			}
 			fmt.Printf("%20s\t%s\t%d\t%d\t%12v\t%.03f\t%.03f\n",
-				p.Location, p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.FirstPing), msecRTT, respTime)
+				trimLoc(p.Location), p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.FirstPing), msecRTT, respTime)
 		}
-	}
 
-	if dumpJson {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(rm); err != nil {
-			log.Fatal("failed to decode JSON")
+		if dumpDeleted && len(rm.DelPeers) > 0 {
+			fmt.Printf("%s %s%s has %d deleted peers:\n",
+				rm.SrvLoc, peerHost, override, len(rm.DelPeers))
+
+			for _, p := range rm.DelPeers {
+				var msecRTT, respTime float64
+				if p.Pings > 0 {
+					msecRTT = pt.Msec(p.PingTotals.TcpHs) / float64(p.Pings)
+					respTime = pt.Msec(p.PingTotals.Total) / float64(p.Pings)
+				}
+				if len(p.PeerIP) == 0 {
+					p.PeerIP = " unknown "
+				}
+				fmt.Printf("%20s\t%s\t%d\t%d\t%12v\t%.03f\t%.03f\n",
+					trimLoc(p.Location), p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.FirstPing), msecRTT, respTime)
+			}
 		}
 	}
 
 	return
+}
+
+func trimLoc(s string) string {
+	pfx := []string{
+		"https://",
+		"http://",
+	}
+	for _, p := range pfx {
+		if strings.HasPrefix(s, p) {
+			return s[len(p):]
+		}
+	}
+	return s
 }
