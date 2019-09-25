@@ -36,6 +36,8 @@ Command line flags:
 func printUsage() {
 	fmt.Fprintf(os.Stderr, usage, os.Args[0])
 	flag.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\n%s version %s\n", os.Args[0], buildVersion)
+	// if you get an error here, run "make version" two directories up
 }
 
 ////
