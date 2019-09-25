@@ -5,6 +5,8 @@
 FROM alpine:3.4
 
 RUN apk update && apk add ca-certificates && /bin/rm -rf /var/cache/apk/*
+RUN apk add --no-cache curl
+
 ADD cmd/pingmesh/pingmesh.exe /usr/local/bin/pingmesh
 
 # Include -c option to publish to CloudWatch.  You must also set the following
