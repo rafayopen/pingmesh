@@ -6,18 +6,21 @@ CWD := $(shell basename ${PWD})
 # Docker image name, based on current working directory
 IMAGE := ${CWD}
 # Version (tag used with docker push)
-VERSION := `git tag | tail -1`
+VERSION := `git describe --tags --long`
 
 # Linux build image name (does not conflict with go build)
 LINUX_EXE := ${IMAGE}.exe
 # List of docker images
 IMAGE_LIST := ${IMAGE}-images.out
 
+.PHONY: info all
 info:
-	echo VERSION ${VERSION}
 	@-echo Use \"make standalone\" to build local binary cmd/${IMAGE}/${IMAGE}
 	@-echo Use \"make docker\" to build ${IMAGE}:${VERSION} from ${LINUX_EXE}
+	@-echo Use \"make all\" to build both
 # "make push" will push it to DockerHub, using credentials in your env
+
+all: standalone docker
 
 ##
 # Supply default options to docker build
@@ -29,13 +32,22 @@ endef
 ##
 # build the standalone pingmesh application
 ##
-cmd/${IMAGE}/${IMAGE}: cmd/*/*.go pkg/*/*.go
+cmd/${IMAGE}/${IMAGE}: cmd/*/*.go pkg/*/*.go check-version
 	cd cmd/${IMAGE} && go build -v && go test -v && go vet
 
 # build the avgping client 
 # (this does not build a docker or Linux exe, there is no point)
 cmd/avgping/avgping: cmd/*/*.go pkg/*/*.go
 	cd cmd/avgping && go build -v && go test -v && go vet
+
+.PHONY: check-version update-version
+check-version: cmd/${IMAGE}/version.go
+	@-sh -c "grep ${VERSION} $? >/dev/null 2>/dev/null" || $(MAKE) update-version
+update-version:
+	@-echo "package main\n// auto-generated, do not edit\nvar buildVersion = \"${VERSION}\"" > cmd/pingmesh/version.go
+
+cmd/${IMAGE}/version.go:
+	$(MAKE) update-version
 
 .PHONY: standalone install
 standalone:	cmd/${IMAGE}/${IMAGE} cmd/avgping/avgping
@@ -54,7 +66,7 @@ ${IMAGE_LIST}:	cmd/${IMAGE}/${LINUX_EXE} Dockerfile Makefile
 
 full:	clean docker run
 
-cmd/${IMAGE}/${LINUX_EXE}:	cmd/*/*.go pkg/*/*.go
+cmd/${IMAGE}/${LINUX_EXE}:	cmd/*/*.go pkg/*/*.go check-version
 	cd cmd/${IMAGE} && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ${LINUX_EXE} .
 
 .PHONY: run push
@@ -67,7 +79,7 @@ push:	${IMAGE_LIST}
 
 .PHONY: clean
 clean:
-	-rm -rf ${IMAGE_LIST} ${IMAGE} ${LINUX_EXE} cmd/${IMAGE}/${IMAGE} cmd/${IMAGE}/${LINUX_EXE} cmd/avgping/avgping
+	-rm -rf ${IMAGE_LIST} ${IMAGE} ${LINUX_EXE} cmd/${IMAGE}/${IMAGE} cmd/${IMAGE}/${LINUX_EXE} cmd/avgping/avgping cmd/${IMAGE}/version.go
 	-$(DOCKER) rmi ${IMAGE}:${VERSION}
 
 CLI = rafay-cli
@@ -79,6 +91,3 @@ rafay-push:	${IMAGE_LIST}
 
 test:	cmd/${IMAGE}/${IMAGE} test_pingmesh.sh
 	./test_pingmesh.sh
-
-.PHONY: tags					# https://github.com/willoch/tago/  builds etags file
-tags:;	tago `find . -type f | egrep '\.go$$'`
