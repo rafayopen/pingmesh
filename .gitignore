@@ -1,3 +1,6 @@
+cmd/avgping/avgping
+cmd/avgping/avgping.exe
+cmd/*/version.go
 cmd/pingmesh/pingmesh
 cmd/pingmesh/pingmesh.exe
 *.bak
