@@ -87,7 +87,7 @@ func NewPingmeshServer(myLoc, hostname string, port, report int, cwFlag bool, nu
 		// Start server if a listen port has been configured.  Must call Add
 		// before starting the goroutine to avoid race condition.  startServer
 		// will call Done if it fails; and QuitHandler will also call Done.
-		if port > 0 {
+		if ms.listenPort > 0 {
 			ms.SetupRoutes()
 			ms.Add()
 			go ms.startServer()
@@ -143,11 +143,19 @@ func (ms *meshSrv) startServer() error {
 }
 
 func (ms *meshSrv) Shutdown() {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	if ms.listenPort == 0 {
+		// not listening, nothing to do
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Println("server.Shutdown:", err)
 	}
+	ms.listenPort = 0
 	ms.Done()
 }
 

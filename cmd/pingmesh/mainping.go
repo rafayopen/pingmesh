@@ -184,10 +184,7 @@ func main() {
 			if pm.DoneChan() != nil {
 				fmt.Println("\nreceived", sig, "signal, terminating")
 				pm.CloseDoneChan()
-				if servePort > 0 {
-					servePort = 0
-					pm.Shutdown()
-				}
+				pm.Shutdown()
 			} else {
 				// something went wrong (should have exited already)
 				fmt.Println("\nreceived", sig, "signal, hard exit")
@@ -224,15 +221,15 @@ func main() {
 
 	pm.Wait()
 	if verbose > 1 {
-		log.Println("all goroutines exited, closing server")
+		log.Println("all goroutines exited, exiting")
 	}
 
-	if servePort > 0 {
+	/*	if servePort > 0 {
 		pm.Shutdown()
 		if verbose > 0 {
 			log.Println("server shutdown, returning from main")
 		}
-	}
+	}*/
 
 	return
 }
