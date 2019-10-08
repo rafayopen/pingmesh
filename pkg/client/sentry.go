@@ -6,21 +6,41 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 )
 
-var smu sync.Mutex // protect sentry calls (does not look to be reentrant)
+var (
+	sOn bool
+	smu sync.Mutex // protect sentry calls (does not look to be reentrant)
+)
+
+func SentryInit() {
+	dsn := os.Getenv("SENTRY_DSN")
+	if len(dsn) > 0 {
+		err := sentry.Init(sentry.ClientOptions{
+			Dsn: dsn,
+		})
+		if err == nil {
+			sOn = true
+		} else {
+			log.Println("Error initializing sentry:", err)
+		}
+	}
+}
 
 ////
 //  LogSentry writes a message to the log (stderr) and also sends to sentry.io
 func LogSentry(l sentry.Level, format string, args ...interface{}) {
 	e := errors.New(fmt.Sprintf(format, args...))
-	smu.Lock()
-	defer smu.Unlock()
 	log.Println(e)
-	sentry.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetLevel(l)
-	})
-	sentry.CaptureException(e)
-	//	sentry.Flush(time.Second * 5)
+	if sOn {
+		smu.Lock()
+		defer smu.Unlock()
+
+		sentry.ConfigureScope(func(scope *sentry.Scope) {
+			scope.SetLevel(l)
+		})
+		sentry.CaptureException(e)
+	}
 }

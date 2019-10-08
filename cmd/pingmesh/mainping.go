@@ -159,20 +159,7 @@ func main() {
 
 	////
 	// https://sentry.io -- Initialize sentry and generate an error
-	dsn := os.Getenv("SENTRY_DSN")
-	if len(dsn) > 0 {
-		err := sentry.Init(sentry.ClientOptions{
-			Dsn: dsn,
-		})
-		if err == nil {
-			client.SentryOn(true)
-			if verbose > 1 {
-				log.Println("Initialized Sentry with dsn", dsn)
-			}
-		} else {
-			log.Println("Error initializing sentry:", err)
-		}
-	}
+	client.SentryInit()
 	client.LogSentry(sentry.LevelInfo, "%s:%d starting in %s", myHost, servePort, myLocation)
 
 	////////////////////////////////////////////////////////////////////////////////////
