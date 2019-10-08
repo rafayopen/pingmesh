@@ -6,6 +6,8 @@ import (
 	"github.com/rafayopen/perftest/pkg/cw" // cloudwatch integration
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes but not fetchurl
 
+	"github.com/getsentry/sentry-go"
+
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -230,6 +232,7 @@ func (p *peer) Ping() {
 				fmt.Println(p.Pings, ptResult.MsecTsv())
 			}
 			if p.Fails >= maxfail {
+				client.LogSentry(sentry.LevelWarning, "HTTP error %d hit failure limit %d on %s, Ping quitting", ptResult.RespCode, p.Fails, maxfail, p.Url)
 				return
 			}
 			continue
@@ -311,7 +314,7 @@ func (p *peer) AddPeersPeers() {
 		enc.SetIndent("", "  ")
 		// No need to take a lock on the mutex
 		if err := enc.Encode(rm); err != nil {
-			log.Println("Error converting remote state to json:", err)
+			client.LogSentry(sentry.LevelWarning, "Error converting remote state to json: %s", err)
 		}
 	}
 

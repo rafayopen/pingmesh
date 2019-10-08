@@ -13,6 +13,8 @@ import (
 
 	"github.com/rafayopen/perftest/pkg/pt" // pingtimes and fetchurl
 
+	"github.com/getsentry/sentry-go"
+
 	"flag"
 	"fmt"
 	"log"
@@ -21,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const usage = `Usage: %s [flags] endpoints...
@@ -154,6 +157,28 @@ func main() {
 		}
 	}
 
+	////
+	// https://sentry.io -- Initialize sentry and generate an error
+	dsn := os.Getenv("SENTRY_DSN")
+	if len(dsn) == 0 {
+		if verbose > 1 {
+			log.Println("No SENTRY_DSN, not initializing sentry.io")
+		}
+	} else {
+		if verbose > 1 {
+			log.Println("Initializing Sentry with dsn", dsn)
+		}
+		sentry.Init(sentry.ClientOptions{
+			Dsn: dsn,
+		})
+
+		client.LogSentry(sentry.LevelInfo, "%s:%d starting in %s", myHost, servePort, myLocation)
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////
+	//  Start pingmesh server then connect to endpoints from command line
+	////////////////////////////////////////////////////////////////////////////////////
+
 	pm := server.NewPingmeshServer(myLocation, myHost, servePort, serveReport, cwFlag, numTests, pingDelay, maxFail, verbose)
 
 	endpoints := flag.Args() // any remaining arguments are the endpoints to ping
@@ -182,12 +207,14 @@ func main() {
 	go func() {
 		for sig := range sigchan {
 			if pm.DoneChan() != nil {
+				client.LogSentry(sentry.LevelWarning, "pingmesh signal %d, exiting", sig)
 				fmt.Println("\nreceived", sig, "signal, terminating")
 				pm.CloseDoneChan()
 				pm.Shutdown()
 			} else {
 				// something went wrong (should have exited already)
-				fmt.Println("\nreceived", sig, "signal, hard exit")
+				client.LogSentry(sentry.LevelError, "pingmesh signal %d, HARD EXIT", sig)
+				sentry.Flush(time.Second * 5)
 				os.Exit(1)
 			}
 		}
@@ -198,8 +225,6 @@ func main() {
 	if len(endpoints) > 0 && verbose > 0 {
 		if verbose > 1 {
 			log.Println("starting ping across", endpoints)
-		}
-		if verbose > 1 {
 			pt.TextHeader(os.Stdout)
 		}
 	}
@@ -218,18 +243,9 @@ func main() {
 	if verbose > 2 {
 		log.Println("waiting for goroutines to exit")
 	}
-
 	pm.Wait()
-	if verbose > 1 {
-		log.Println("all goroutines exited, exiting")
-	}
 
-	/*	if servePort > 0 {
-		pm.Shutdown()
-		if verbose > 0 {
-			log.Println("server shutdown, returning from main")
-		}
-	}*/
-
+	client.LogSentry(sentry.LevelInfo, "%s server shutdown, exiting %s", myHost, myLocation)
+	sentry.Flush(time.Second * 5)
 	return
 }

@@ -4,6 +4,8 @@ package server
 import (
 	"github.com/rafayopen/pingmesh/pkg/client" // fetchurl
 
+	"github.com/getsentry/sentry-go"
+
 	"context"
 	"encoding/json"
 	"errors"
@@ -137,7 +139,7 @@ func (ms *meshSrv) startServer() error {
 			return nil
 		}
 	}
-	log.Println(err, "after", tries, "tries")
+	client.LogSentry(sentry.LevelError, "startServer error %s after %d tried", err, tries)
 	ms.Done()
 	return err
 }
@@ -153,7 +155,7 @@ func (ms *meshSrv) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Println("server.Shutdown:", err)
+		client.LogSentry(sentry.LevelError, "server.Shutdown: %s", err)
 	}
 	ms.listenPort = 0
 	ms.Done()
