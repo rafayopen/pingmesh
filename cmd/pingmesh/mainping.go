@@ -160,20 +160,20 @@ func main() {
 	////
 	// https://sentry.io -- Initialize sentry and generate an error
 	dsn := os.Getenv("SENTRY_DSN")
-	if len(dsn) == 0 {
-		if verbose > 1 {
-			log.Println("No SENTRY_DSN, not initializing sentry.io")
-		}
-	} else {
-		if verbose > 1 {
-			log.Println("Initializing Sentry with dsn", dsn)
-		}
-		sentry.Init(sentry.ClientOptions{
+	if len(dsn) > 0 {
+		err := sentry.Init(sentry.ClientOptions{
 			Dsn: dsn,
 		})
-
-		client.LogSentry(sentry.LevelInfo, "%s:%d starting in %s", myHost, servePort, myLocation)
+		if err == nil {
+			client.SentryOn(true)
+			if verbose > 1 {
+				log.Println("Initialized Sentry with dsn", dsn)
+			}
+		} else {
+			log.Println("Error initializing sentry:", err)
+		}
 	}
+	client.LogSentry(sentry.LevelInfo, "%s:%d starting in %s", myHost, servePort, myLocation)
 
 	////////////////////////////////////////////////////////////////////////////////////
 	//  Start pingmesh server then connect to endpoints from command line
@@ -245,7 +245,7 @@ func main() {
 	}
 	pm.Wait()
 
-	client.LogSentry(sentry.LevelInfo, "%s server shutdown, exiting %s", myHost, myLocation)
+	client.LogSentry(sentry.LevelInfo, "%s:%d server shutdown, exiting %s", myHost, servePort, myLocation)
 	sentry.Flush(time.Second * 5)
 	return
 }
