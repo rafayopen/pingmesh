@@ -232,7 +232,7 @@ func (p *peer) Ping() {
 				fmt.Println(p.Pings, ptResult.MsecTsv())
 			}
 			if p.Fails >= maxfail {
-				client.LogSentry(sentry.LevelWarning, "HTTP error %d hit failure limit %d on %s, Ping quitting", ptResult.RespCode, p.Fails, maxfail, p.Url)
+				client.LogSentry(sentry.LevelWarning, "HTTP error %d hit failure limit %d on %s, Ping quitting", ptResult.RespCode, p.Fails, p.Url)
 				return
 			}
 			continue
