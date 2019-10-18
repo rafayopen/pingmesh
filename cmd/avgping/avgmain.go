@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 const usage = `Usage: %s [flags]
@@ -77,8 +78,8 @@ func main() {
 		fmt.Printf("%s %s%s has %d peers and started %s ago:\n",
 			rm.SrvLoc, peerHost, override, len(rm.Peers), server.Hhmmss_d(rm.Start))
 		if len(rm.Peers) > 0 {
-			fmt.Printf("%20s\t%s\t%s\t%s\t%12s\t%s\t%s\n",
-				"Location", "    PeerIP", "Pings", "Fails", "Running", "msecRTT", "respTime")
+			fmt.Printf("%20s\t%s\t%s\t%s\t%12s\t%s\t%s\t%s\n",
+				"Location", "Pings", "Fails", "Start Time", "Duration", "msecRTT", "totalMs", "PeerIP or URL")
 		}
 		sort.SliceStable(rm.Peers, func(i, j int) bool { return rm.Peers[i].Location < rm.Peers[j].Location })
 		for _, p := range rm.Peers {
@@ -90,13 +91,15 @@ func main() {
 			if len(p.PeerIP) == 0 {
 				p.PeerIP = " unknown "
 			}
-			fmt.Printf("%20s\t%s\t%d\t%d\t%12v\t%.03f\t%.03f\n",
-				trimLoc(p.Location), p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.FirstPing), msecRTT, respTime)
+			fmt.Printf("%20s\t%d\t%d\t%s\t%12v\t%.03f\t%.03f\t%s\n",
+				trimLoc(p.Location), p.Pings, p.Fails, p.FirstPing.Format(time.Stamp)[:12], p.LatestPing.Sub(p.FirstPing), msecRTT, respTime, p.PeerIP)
 		}
 
 		if dumpDeleted && len(rm.DelPeers) > 0 {
 			fmt.Printf("%s %s%s has %d deleted peers:\n",
 				rm.SrvLoc, peerHost, override, len(rm.DelPeers))
+			fmt.Printf("%20s\t%s\t%s\t%s\t%12s\t%s\t%s\t%s\n",
+				"Location", "Pings", "Fails", "Start Time", "Duration", "msecRTT", "totalMs", "PeerIP or URL")
 
 			for _, p := range rm.DelPeers {
 				var msecRTT, respTime float64
@@ -107,8 +110,8 @@ func main() {
 				if len(p.PeerIP) == 0 {
 					p.PeerIP = " unknown "
 				}
-				fmt.Printf("%20s\t%s\t%d\t%d\t%12v\t%.03f\t%.03f\n",
-					trimLoc(p.Location), p.PeerIP, p.Pings, p.Fails, server.Hhmmss_d(p.FirstPing), msecRTT, respTime)
+				fmt.Printf("%20s\t%d\t%d\t%s\t%12v\t%.03f\t%.03f\t%s\n",
+					trimLoc(p.Location), p.Pings, p.Fails, p.FirstPing.Format(time.Stamp)[:12], p.LatestPing.Sub(p.FirstPing), msecRTT, respTime, p.PeerIP)
 			}
 		}
 	}
