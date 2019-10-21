@@ -323,11 +323,13 @@ func (p *peer) AddPeersPeers() {
 		ip := rmp.PeerIP
 		peer := p.ms.FindPeer(url, ip)
 		if peer != nil {
-			log.Println("peer", url, ip, "-- PeerAlreadyPresent")
+			if p.ms.Verbose() > 2 {
+				log.Println("peer", url, ip, "-- PeerAlreadyPresent")
+			}
 			continue
 		}
-		log.Println("adding peer", url, ip)
 
+		log.Println("adding peer", url, ip)
 		peer = p.ms.NewPeer(url, ip, p.Location)
 		peer.ms.Add() // for the Ping goroutine
 		go peer.Ping()
