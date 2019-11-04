@@ -194,13 +194,13 @@ func main() {
 	go func() {
 		for sig := range sigchan {
 			if pm.DoneChan() != nil {
-				client.LogSentry(sentry.LevelWarning, "pingmesh signal %d, exiting", sig)
+				client.LogSentry(sentry.LevelWarning, "pingmesh signal %d, exiting %s", sig, myLocation)
 				fmt.Println("\nreceived", sig, "signal, terminating")
 				pm.CloseDoneChan()
 				pm.Shutdown()
 			} else {
 				// something went wrong (should have exited already)
-				client.LogSentry(sentry.LevelError, "pingmesh signal %d, HARD EXIT", sig)
+				client.LogSentry(sentry.LevelError, "pingmesh signal %d, HARD EXIT %s", sig, myLocation)
 				sentry.Flush(time.Second * 5)
 				os.Exit(1)
 			}

@@ -134,9 +134,13 @@ func (p *peer) Ping() {
 		}
 		////
 		// Sleep first, allows risk-free continue from error cases below
-		sleepTime := p.Delay
+		var sleepTime int
 		if p.Pings == 0 {
-			sleepTime = 1 // short sleep the first time around
+			if sleepTime < p.Delay {
+				sleepTime++
+			}
+		} else {
+			sleepTime = p.Delay
 		}
 
 		select {
@@ -227,13 +231,22 @@ func (p *peer) Ping() {
 				defer p.mu.Unlock()
 				p.Fails++
 			}()
-			log.Println("HTTP error", ptResult.RespCode, "failure", p.Fails, "of", maxfail, "on", p.Url)
+			remote := p.Location
+			if len(remote) == 0 || remote == client.LocUnknown {
+				if len(p.PeerIP) > 0 {
+					remote = p.PeerIP
+				} else {
+					remote = p.Host
+				}
+			}
 			if p.ms.Verbose() > 0 {
 				fmt.Println(p.Pings, ptResult.MsecTsv())
 			}
 			if p.Fails >= maxfail {
-				client.LogSentry(sentry.LevelWarning, "HTTP error %d hit failure limit %d on %s, Ping quitting", ptResult.RespCode, p.Fails, p.Url)
+				client.LogSentry(sentry.LevelWarning, "%s to %s: HTTP error %d hit failure limit %d on %s, Ping quitting", p.ms.SrvLocation(), remote, ptResult.RespCode, p.Fails, p.Url)
 				return
+			} else {
+				log.Println(p.ms.SrvLocation(), "to", remote, "HTTP", ptResult.RespCode, "failure", p.Fails, "of", maxfail, "on", p.Url)
 			}
 			continue
 
