@@ -84,6 +84,12 @@ func main() {
 		sort.SliceStable(rm.Peers, func(i, j int) bool { return rm.Peers[i].Location < rm.Peers[j].Location })
 		for _, p := range rm.Peers {
 			var msecRTT, respTime float64
+			start := p.FirstPing.Format(time.Stamp)[:12]
+			duration := p.LatestPing.Sub(p.FirstPing).Nanoseconds() / 1e9
+			if duration < 0 {
+				duration = 0
+			}
+
 			if p.Pings > 0 {
 				msecRTT = pt.Msec(p.PingTotals.TcpHs) / float64(p.Pings)
 				respTime = pt.Msec(p.PingTotals.Total) / float64(p.Pings)
@@ -92,7 +98,7 @@ func main() {
 				p.PeerIP = " unknown "
 			}
 			fmt.Printf("%20s\t%d\t%d\t%s\t%12v\t%.03f\t%12.03f\t%s\n",
-				trimLoc(p.Location), p.Pings, p.Fails, p.FirstPing.Format(time.Stamp)[:12], p.LatestPing.Sub(p.FirstPing), msecRTT, respTime, p.PeerIP)
+				trimLoc(p.Location), p.Pings, p.Fails, start, server.Hhmmss(duration), msecRTT, respTime, p.PeerIP)
 		}
 
 		if dumpDeleted && len(rm.DelPeers) > 0 {
@@ -103,6 +109,11 @@ func main() {
 
 			for _, p := range rm.DelPeers {
 				var msecRTT, respTime float64
+				start := p.FirstPing.Format(time.Stamp)[:12]
+				duration := p.LatestPing.Sub(p.FirstPing).Nanoseconds() / 1e9
+				if duration < 0 {
+					duration = 0
+				}
 				if p.Pings > 0 {
 					msecRTT = pt.Msec(p.PingTotals.TcpHs) / float64(p.Pings)
 					respTime = pt.Msec(p.PingTotals.Total) / float64(p.Pings)
@@ -111,7 +122,7 @@ func main() {
 					p.PeerIP = " unknown "
 				}
 				fmt.Printf("%20s\t%d\t%d\t%s\t%12v\t%.03f\t%12.03f\t%s\n",
-					trimLoc(p.Location), p.Pings, p.Fails, p.FirstPing.Format(time.Stamp)[:12], p.LatestPing.Sub(p.FirstPing), msecRTT, respTime, p.PeerIP)
+					trimLoc(p.Location), p.Pings, p.Fails, start, server.Hhmmss(duration), msecRTT, respTime, p.PeerIP)
 			}
 		}
 	}
